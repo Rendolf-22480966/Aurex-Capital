@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aurex Capital — Live Crypto Markets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=3" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <a href="/" class="logo" data-view-link="overview">
+          <span class="logo-icon">◆</span>
+          <span>Aurex Capital</span>
+        </a>
+        <nav class="nav">
+          <button class="nav-btn active" data-view="overview">Overview</button>
+          <button class="nav-btn" data-view="markets">Markets</button>
+          <button class="nav-btn" data-view="trending">Trending</button>
+          <button class="nav-btn" data-view="gainers">Gainers</button>
+          <button class="nav-btn" data-view="losers">Losers</button>
+          <button class="nav-btn" data-view="watchlist">Watchlist</button>
+          <button class="nav-btn" data-view="portfolio">Portfolio</button>
+          <button class="nav-btn" data-view="trades">History</button>
+          <button class="nav-btn admin-only hidden" data-view="admin">Admin</button>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="search-wrap">
+          <input id="globalSearch" type="search" placeholder="Search BTC, ETH, Solana…" class="search-input" autocomplete="off" />
+          <div id="searchDropdown" class="search-dropdown hidden"></div>
+        </div>
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          Live · CoinGecko
+        </div>
+        <div id="userPanel" class="user-panel hidden">
+          <div class="balance-pill"><span class="label">Cash</span><span id="headerBalance">$0.00</span></div>
+          <span id="headerUsername" class="username"></span>
+          <button id="logoutBtn" class="btn btn-ghost btn-sm">Logout</button>
+        </div>
+        <button id="loginBtn" class="btn btn-primary btn-sm">Sign In</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- OVERVIEW -->
+      <section id="viewOverview" class="view active">
+        <div class="section-header">
+          <h1>Global Market Overview</h1>
+          <p id="overviewMeta" class="subtitle meta-line"></p>
+        </div>
+        <div id="globalStats" class="stats-grid"></div>
+        <div class="overview-panels">
+          <div class="panel">
+            <h2>Trending</h2>
+            <div id="overviewTrending" class="trend-grid"></div>
+          </div>
+          <div class="panel">
+            <h2>Top Gainers (24h)</h2>
+            <div id="overviewGainers" class="movers-list"></div>
+          </div>
+          <div class="panel">
+            <h2>Top Losers (24h)</h2>
+            <div id="overviewLosers" class="movers-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MARKETS -->
+      <section id="viewMarkets" class="view">
+        <div class="section-header">
+          <h1>All Cryptocurrencies</h1>
+          <p id="marketsMeta" class="subtitle meta-line"></p>
+        </div>
+        <div class="table-toolbar">
+          <label>Sort by
+            <select id="marketsSort" class="select-input">
+              <option value="market_cap">Market Cap</option>
+              <option value="rank">Rank</option>
+              <option value="price">Price</option>
+              <option value="volume">Volume</option>
+              <option value="change_desc">24h % (High → Low)</option>
+              <option value="change_asc">24h % (Low → High)</option>
+            </select>
+          </label>
+          <div class="pagination">
+            <button id="marketsPrev" class="btn btn-ghost btn-sm">← Prev</button>
+            <span id="marketsPageInfo"></span>
+            <button id="marketsNext" class="btn btn-ghost btn-sm">Next →</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Coin</th>
+                <th>Price</th>
+                <th>24h %</th>
+                <th>Market Cap</th>
+                <th>Volume (24h)</th>
+                <th>24h High</th>
+                <th>24h Low</th>
+                <th>Supply</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="marketsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TRENDING -->
+      <section id="viewTrending" class="view">
+        <div class="section-header">
+          <h1>Trending Coins</h1>
+          <p id="trendingMeta" class="subtitle meta-line"></p>
+        </div>
+        <div id="trendingGrid" class="trend-grid wide"></div>
+      </section>
+
+      <!-- GAINERS -->
+      <section id="viewGainers" class="view">
+        <div class="section-header">
+          <h1>Top Gainers (24h)</h1>
+          <p id="gainersMeta" class="subtitle meta-line"></p>
+        </div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>Market Cap</th><th>Volume</th></tr></thead>
+            <tbody id="gainersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- LOSERS -->
+      <section id="viewLosers" class="view">
+        <div class="section-header">
+          <h1>Top Losers (24h)</h1>
+          <p id="losersMeta" class="subtitle meta-line"></p>
+        </div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>Market Cap</th><th>Volume</th></tr></thead>
+            <tbody id="losersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- WATCHLIST -->
+      <section id="viewWatchlist" class="view">
+        <div class="section-header">
+          <h1>Watchlist</h1>
+          <p id="watchlistMeta" class="subtitle meta-line"></p>
+        </div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>Market Cap</th><th>Volume</th><th></th></tr></thead>
+            <tbody id="watchlistTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- COIN DETAIL -->
+      <section id="viewCoinDetail" class="view">
+        <button id="backToMarkets" class="btn btn-ghost btn-sm back-btn">← Back to Markets</button>
+        <p id="coinDetailMeta" class="meta-line"></p>
+        <div id="coinDetailHeader"></div>
+        <div id="coinDetailStats" class="stats-grid"></div>
+        <div class="chart-controls">
+          <button class="chart-range active" data-days="1">1D</button>
+          <button class="chart-range" data-days="7">7D</button>
+          <button class="chart-range" data-days="30">30D</button>
+          <button class="chart-range" data-days="90">90D</button>
+          <button class="chart-range" data-days="365">1Y</button>
+          <button class="chart-range" data-days="max">MAX</button>
+        </div>
+        <div id="coinDetailChart" class="detail-chart"></div>
+        <div class="coin-detail-grid">
+          <div class="panel">
+            <h2>About</h2>
+            <div id="coinDetailAbout" class="about-text"></div>
+            <div id="coinDetailLinks" class="coin-links"></div>
+          </div>
+          <div id="tradeBox" class="trade-box panel" data-coin-id="" data-coin-symbol="" data-coin-name="">
+            <h2>Paper Trade</h2>
+            <p class="trade-price"><span id="tradeCoinName"></span> · <strong id="tradeLivePrice">—</strong></p>
+            <div class="trade-tabs">
+              <button class="trade-tab active" data-side="buy">Buy</button>
+              <button class="trade-tab" data-side="sell">Sell</button>
+            </div>
+            <label>Amount (coins)<input id="tradeAmount" type="number" min="0" step="any" placeholder="0.00" /></label>
+            <p class="trade-estimate">Estimated total: <span id="tradeTotal">$0.00</span></p>
+            <button id="executeTradeBtn" class="btn btn-trade btn-buy">Buy</button>
+            <p id="tradeMessage" class="trade-message"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- PORTFOLIO -->
+      <section id="viewPortfolio" class="view">
+        <div class="section-header"><h1>Portfolio</h1></div>
+        <div id="portfolioSummary" class="stats-grid"></div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>Asset</th><th>Amount</th><th>Avg Buy</th><th>Price</th><th>Value</th><th>P/L</th></tr></thead>
+            <tbody id="holdingsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TRADES -->
+      <section id="viewTrades" class="view">
+        <div class="section-header"><h1>Trade History</h1></div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>Date</th><th>Coin</th><th>Side</th><th>Amount</th><th>Price</th><th>Total</th></tr></thead>
+            <tbody id="tradesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ADMIN -->
+      <section id="viewAdmin" class="view">
+        <div class="section-header"><h1>Admin</h1></div>
+        <div id="adminStats" class="stats-grid"></div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead><tr><th>User</th><th>Role</th><th>Balance</th><th>Trades</th><th>Joined</th><th></th></tr></thead>
+            <tbody id="adminTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="authModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <button id="closeAuthModal" class="close-panel">&times;</button>
+      <h2 id="authTitle">Sign In</h2>
+      <p class="modal-sub">Start with $10,000 virtual USD</p>
+      <form id="authForm">
+        <label>Username<input id="authUsername" type="text" required autocomplete="username" /></label>
+        <label>Password<input id="authPassword" type="password" required minlength="6" autocomplete="current-password" /></label>
+        <p id="authError" class="auth-error"></p>
+        <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Sign In</button>
+      </form>
+      <p class="auth-switch"><span id="authSwitchText">Don't have an account?</span> <button type="button" id="authSwitchBtn" class="link-btn">Register</button></p>
+      <p class="demo-hint">Demo admin: <code>admin</code> / <code>admin123</code></p>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Netlify — SPA fallback only (frontend files in /public)
+# IMPORTANT: Aurex Capital is a Node.js + Express app. Netlify static hosting
+# cannot run /api routes or SQLite. Use Render.com for the full live dashboard.
+# See README.md → Deploy section.
+
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
