@@ -5,7 +5,8 @@ Paper trading platform with a **live cryptocurrency market terminal** powered by
 ## Quick start
 
 ```bash
-cd crypto-paper-trader
+git clone https://github.com/Rendolf-22480966/Aurex-Capital.git
+cd Aurex-Capital
 npm install
 npm start
 ```
@@ -26,19 +27,35 @@ Netlify’s default hosting only serves static files (`HTML/CSS/JS`). It **canno
 
 ### Recommended: Render (free, works with this project)
 
+**Important:** You must use **Web Service**, not **Static Site**. A Static Site cannot run Node/Express and will always show 404 or a blank page.
+
 1. Push your code to **GitHub**
-2. Go to [render.com](https://render.com) → **New → Web Service**
-3. Connect your repo
+2. Go to [render.com](https://render.com) → **New → Web Service** (not Static Site)
+3. Connect repo: `Rendolf-22480966/Aurex-Capital`
 4. Settings:
-   - **Build command:** `npm install`
+   - **Root directory:** leave blank
+   - **Runtime:** Node
+   - **Build command:** `npm install && npm rebuild better-sqlite3 --build-from-source`
    - **Start command:** `npm start`
-   - **Publish directory:** leave empty (not used)
+   - **Publish directory:** leave empty
 5. **Environment variables** (Render dashboard → Environment):
    - `COINGECKO_API_KEY` = your CoinGecko Demo key
-   - `JWT_SECRET` = any long random string
-6. Deploy → open the `https://your-app.onrender.com` URL
+   - `JWT_SECRET` = any long random string (e.g. 32+ chars)
+   - `DATA_DIR` = `/tmp/aurex-data` (optional; SQLite storage on Render)
+6. Deploy → open `https://your-app.onrender.com`
 
-Or use the included `render.yaml` for one-click Blueprint deploy.
+**Verify it works:** open `https://your-app.onrender.com/health` — you should see `{"ok":true,"service":"aurex-capital"}`.
+
+Or use the included `render.yaml` for Blueprint deploy (**New → Blueprint** → connect repo).
+
+#### If you still see 404 or timeout
+
+| Symptom | Fix |
+|---------|-----|
+| **404 Not Found** on `/` and `/health` | You likely created a **Static Site**. Delete it and create a **Web Service** instead. |
+| **Request timed out** (60–120s) | Deploy failed or app crashed on start. Open Render → **Logs** and look for `better-sqlite3` or `EADDRINUSE` errors. |
+| **502 Bad Gateway** | Server starting — wait 30s on free tier (cold start), then refresh. |
+| Build fails on `better-sqlite3` | Set build command to `npm install && npm rebuild better-sqlite3 --build-from-source` |
 
 ### Netlify (not recommended for this app)
 

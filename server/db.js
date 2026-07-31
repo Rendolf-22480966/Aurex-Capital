@@ -3,9 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (err) {
+  console.error(`Cannot create data directory at ${dataDir}:`, err.message);
+  throw err;
 }
 
 const db = new Database(path.join(dataDir, 'paper-trader.db'));

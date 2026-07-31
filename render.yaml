@@ -3,9 +3,9 @@ services:
     name: aurex-capital
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm rebuild better-sqlite3 --build-from-source
     startCommand: npm start
-    healthCheckPath: /api/health
+    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -13,3 +13,5 @@ services:
         generateValue: true
       - key: COINGECKO_API_KEY
         sync: false
+      - key: DATA_DIR
+        value: /tmp/aurex-data

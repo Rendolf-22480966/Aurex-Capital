@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "build": "echo \"No build step — Node server serves public/\""
+    "build": "npm rebuild better-sqlite3 --build-from-source || npm install",
+    "postinstall": "npm rebuild better-sqlite3 --build-from-source || true"
   },
   "engines": {
     "node": ">=20"
