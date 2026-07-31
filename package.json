@@ -7,7 +7,9 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "build": "npm rebuild better-sqlite3 --build-from-source || npm install",
-    "postinstall": "npm rebuild better-sqlite3 --build-from-source || true"
+    "postinstall": "npm rebuild better-sqlite3 --build-from-source || true",
+    "tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3000",
+    "tunnel:lt": "npx --yes localtunnel --port 3000"
   },
   "engines": {
     "node": ">=20"
