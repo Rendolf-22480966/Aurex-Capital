@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake", "pkg-config"]
+
+[phases.install]
+cmds = ["npm ci", "npm rebuild better-sqlite3 --build-from-source || true"]
+
+[start]
+cmd = "npm start"

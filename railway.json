@@ -1,11 +1,13 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "npm ci && npm rebuild better-sqlite3 --build-from-source || true"
   },
   "deploy": {
     "startCommand": "npm start",
     "healthcheckPath": "/health",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE"
   }
 }

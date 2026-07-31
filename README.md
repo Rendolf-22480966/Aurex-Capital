@@ -25,7 +25,25 @@ Aurex Capital is **not a static website**. It needs:
 
 Netlify’s default hosting only serves static files (`HTML/CSS/JS`). It **cannot** run your Express backend, so you get a broken site or Netlify’s 404 page.
 
-### Recommended: Render (free, works with this project)
+### Recommended: Railway (easiest — works on your phone)
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/new/template?template=https://github.com/Rendolf-22480966/Aurex-Capital)
+
+**Or manual setup:**
+
+1. Go to **[railway.com/new/github](https://railway.com/new/github)** → sign in with GitHub
+2. Select repo **`Rendolf-22480966/Aurex-Capital`**
+3. Click the service → **Variables** → add only these two:
+   - `JWT_SECRET` = `aurex-capital-rendolf-2026-secret`
+   - `COINGECKO_API_KEY` = your CoinGecko demo key
+4. **Settings → Networking → Generate Domain**
+5. Open your URL on your phone — login: `admin` / `admin123`
+
+No volume setup needed for testing (database uses `/tmp` automatically on Railway).
+
+**Verify:** `https://YOUR-URL/health` → `{"ok":true,"service":"aurex-capital"}`
+
+### Alternative: Render (free, works with this project)
 
 **Important:** You must use **Web Service**, not **Static Site**. A Static Site cannot run Node/Express and will always show 404 or a blank page.
 

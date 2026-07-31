@@ -3,7 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+const dataDir =
+  process.env.DATA_DIR ||
+  (process.env.RAILWAY_ENVIRONMENT || process.env.RENDER
+    ? '/tmp/aurex-data'
+    : path.join(__dirname, '..', 'data'));
 try {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
