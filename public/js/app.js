@@ -225,7 +225,7 @@ async function loadActivity() {
     return;
   }
   try {
-    const { transactions } = await api.getTransactions();
+    const { transactions } = await api.getTransactions(50);
     $('#tradesTableBody').innerHTML = transactions.length
       ? transactions.map(renderLedgerRow).join('')
       : '<tr><td colspan="6" class="empty-state">No activity yet</td></tr>';
@@ -291,7 +291,7 @@ function bindEvents() {
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
-        loadOverviewWidget();
+        showView('dashboard');
       } else if (mode === 'register') {
         const result = await api.register({
           firstName: $('#authFirstName').value.trim(),
@@ -305,7 +305,7 @@ function bindEvents() {
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
-        loadOverviewWidget();
+        showView('dashboard');
         showToast('Account created — check your email to verify');
         showDevPreview(result.devPreviewUrl, 'Verification link');
       } else if (mode === 'forgot') {

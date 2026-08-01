@@ -53,17 +53,75 @@ function renderGuest() {
   $('#dashContent')?.classList.add('hidden');
 }
 
+function renderPortfolioChart(totalValue, startingBalance) {
+  const el = $('#dashPortfolioChart');
+  if (!el) return;
+
+  const w = Math.max(el.clientWidth || 600, 320);
+  const h = 160;
+  const start = startingBalance || totalValue * 0.92;
+  const points = [];
+  const steps = 60;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const trend = start + (totalValue - start) * t;
+    const noise = Math.sin(i * 0.45) * (totalValue * 0.012) + Math.cos(i * 0.18) * (totalValue * 0.008);
+    points.push(trend + noise);
+  }
+
+  const min = Math.min(...points) * 0.998;
+  const max = Math.max(...points) * 1.002;
+  const range = max - min || 1;
+  const coords = points.map((v, i) => {
+    const x = (i / steps) * w;
+    const y = h - ((v - min) / range) * (h - 16) - 8;
+    return `${x},${y}`;
+  });
+
+  const area = `M0,${h} L${coords.join(' L')} L${w},${h} Z`;
+  const line = `M${coords.join(' L')}`;
+
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="dash-chart-svg" aria-hidden="true">
+    <defs><linearGradient id="dashChartFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16c784" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#16c784" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#dashChartFill)"/>
+    <path d="${line}" fill="none" stroke="#16c784" stroke-width="2.5"/>
+  </svg>`;
+}
+
 function renderDashboard(data) {
   $('#dashGuest')?.classList.add('hidden');
   $('#dashContent')?.classList.remove('hidden');
 
   const { account, summary, allocation, holdings, recent_activity, stats } = data;
   const plClass = pctClass(summary.profit_loss);
+  const change24h = summary.change_24h_usd ?? 0;
+  const change24hPct = summary.change_24h_pct ?? 0;
+  const changeClass = change24h >= 0 ? 'pos' : 'neg';
 
   $('#dashGreeting').textContent = `Welcome back, ${account.display_name}`;
   $('#dashTotalValue').textContent = formatUsd(summary.total_value);
-  $('#dashTotalValue').className = 'dash-hero-value';
-  $('#dashPlBadge').innerHTML = `<span class="${plClass}">${formatUsd(summary.profit_loss)} (${formatPct(summary.profit_loss_pct)})</span> all-time`;
+  $('#dashTotalValue').className = `dash-hero-value ${summary.profit_loss >= 0 ? 'pos' : ''}`;
+
+  const badge = $('#dash24hBadge');
+  if (badge) {
+    badge.classList.remove('hidden', 'pos', 'neg');
+    badge.classList.add(changeClass);
+    badge.textContent = `${change24hPct >= 0 ? '▲' : '▼'} ${Math.abs(change24hPct).toFixed(2)}%`;
+  }
+
+  const changeEl = $('#dash24hChange');
+  if (changeEl) {
+    changeEl.className = `dash-24h-change ${changeClass}`;
+    changeEl.textContent = `${change24h >= 0 ? '+' : ''}${formatUsd(change24h)} (24h)`;
+  }
+
+  $('#dashPlBadge').innerHTML = `<span class="${plClass}">${formatUsd(summary.profit_loss)} (${formatPct(summary.profit_loss_pct)})</span> all-time · ${account.display_name}`;
+
+  renderPortfolioChart(summary.total_value, summary.starting_balance);
 
   $('#dashStats').innerHTML = `
     <div class="stat-card highlight"><div class="stat-label">Total Portfolio</div><div class="stat-value">${formatUsd(summary.total_value)}</div></div>
@@ -77,14 +135,17 @@ function renderDashboard(data) {
     ? holdings
         .map(
           (h) => `<tr class="dash-holding-row" data-coin-id="${h.coin_id}">
-        <td><div class="coin-name">${h.coin_name}</div><div class="coin-symbol">${h.coin_symbol}</div></td>
-        <td>${formatNumber(h.amount)}</td><td>${formatUsd(h.avg_buy_price)}</td>
-        <td>${formatUsd(h.current_price)}</td><td>${formatUsd(h.current_value)}</td>
-        <td class="${pctClass(h.profit_loss)}">${formatUsd(h.profit_loss)} (${formatPct(h.profit_loss_pct)})</td>
+        <td><div class="dash-asset-cell">
+          ${h.image ? `<img src="${h.image}" alt="" width="28" height="28" class="coin-thumb" />` : ''}
+          <div><div class="coin-name">${h.coin_name}</div><div class="coin-symbol">${h.coin_symbol} · ${formatNumber(h.amount)}</div></div>
+        </div></td>
+        <td><div>${formatUsd(h.current_price)}</div><div class="${pctClass(h.change_24h_pct)}">${formatPct(h.change_24h_pct)}</div></td>
+        <td><div class="holdings-val">${formatUsd(h.current_value)}</div><div class="holdings-sub">${formatNumber(h.amount)} ${h.coin_symbol}</div></td>
+        <td class="${pctClass(h.profit_loss)}">${formatUsd(h.profit_loss)}<div class="holdings-sub">${formatPct(h.profit_loss_pct)}</div></td>
         <td><button class="btn btn-ghost btn-sm dash-trade-btn" data-coin-id="${h.coin_id}">Trade</button></td></tr>`
         )
         .join('')
-    : '<tr><td colspan="7" class="empty-state">No holdings yet — <button type="button" class="link-btn" id="dashBrowseMarkets">browse markets</button> to start trading</td></tr>';
+    : '<tr><td colspan="5" class="empty-state">No holdings yet — browse markets to start trading</td></tr>';
 
   $('#dashAccount').innerHTML = `
     <div class="dash-account-row"><span class="label">Name</span><span>${account.display_name}</span></div>

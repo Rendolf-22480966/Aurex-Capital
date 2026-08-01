@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=13" />
+  <link rel="stylesheet" href="/css/style.css?v=14" />
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -188,15 +188,30 @@
           </div>
         </div>
         <div id="dashContent" class="hidden">
-          <div class="dash-hero panel">
-            <div>
-              <p id="dashGreeting" class="dash-greeting">Welcome back</p>
+          <div class="dash-portfolio-header panel">
+            <p class="dash-balance-label">Current Balance</p>
+            <div class="dash-balance-row">
               <div id="dashTotalValue" class="dash-hero-value">$0.00</div>
-              <p id="dashPlBadge" class="dash-pl-badge"></p>
+              <span id="dash24hBadge" class="dash-change-badge hidden"></span>
             </div>
-            <div class="dash-hero-actions">
-              <button id="dashBrowseMarkets" type="button" class="btn btn-primary btn-sm">Browse Markets</button>
-              <button id="dashViewActivity" type="button" class="btn btn-ghost btn-sm">View Activity</button>
+            <p id="dash24hChange" class="dash-24h-change"></p>
+            <p id="dashPlBadge" class="dash-pl-badge"></p>
+            <p id="dashGreeting" class="dash-greeting hidden">Welcome back</p>
+          </div>
+          <div class="panel dash-chart-panel">
+            <div class="dash-chart-tabs">
+              <button type="button" class="dash-tab active">Line Chart</button>
+              <button type="button" class="dash-tab" disabled title="Coming soon">Pie Chart</button>
+              <button type="button" class="dash-tab" disabled title="Coming soon">Statistics</button>
+            </div>
+            <div id="dashPortfolioChart" class="dash-portfolio-chart"></div>
+            <div class="dash-timeframes">
+              <span class="dash-tf">24h</span>
+              <span class="dash-tf">7d</span>
+              <span class="dash-tf">30d</span>
+              <span class="dash-tf active">60d</span>
+              <span class="dash-tf">90d</span>
+              <span class="dash-tf">All</span>
             </div>
           </div>
           <div id="dashStats" class="stats-grid"></div>
@@ -206,15 +221,22 @@
           </div>
           <div class="dash-grid">
             <div class="panel dash-holdings-panel">
-              <h2>Holdings</h2>
+              <div class="dash-assets-head">
+                <h2>Your Assets</h2>
+                <div class="dash-value-toggle"><span class="active">$</span><span>%</span></div>
+              </div>
               <div class="table-scroll">
-                <table class="market-table">
-                  <thead><tr><th>Asset</th><th>Amount</th><th>Avg Buy</th><th>Price</th><th>Value</th><th>P/L</th><th></th></tr></thead>
+                <table class="market-table dash-assets-table">
+                  <thead><tr><th>Asset</th><th>Price</th><th>Holdings</th><th>P/L</th><th></th></tr></thead>
                   <tbody id="dashHoldingsBody"></tbody>
                 </table>
               </div>
             </div>
             <div class="dash-sidebar">
+              <div class="panel dash-quick-actions">
+                <button id="dashBrowseMarkets" type="button" class="btn btn-primary btn-block btn-sm">Browse Markets</button>
+                <button id="dashViewActivity" type="button" class="btn btn-ghost btn-block btn-sm">Full Activity</button>
+              </div>
               <div class="panel">
                 <h2>Account</h2>
                 <div id="dashAccount" class="dash-account"></div>
@@ -302,6 +324,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=13"></script>
+  <script type="module" src="/js/app.js?v=14"></script>
 </body>
 </html>

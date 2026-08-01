@@ -6,23 +6,32 @@ const ALLOCATION_COLORS = ['#8bc53f', '#3861fb', '#16c784', '#ea3943', '#f7931a'
 
 async function enrichHoldings(holdings) {
   let holdingsValue = 0;
+  let change24hUsd = 0;
   const enriched = [];
 
   if (!holdings.length) {
-    return { enriched, holdingsValue };
+    return { enriched, holdingsValue, change24hUsd: 0, change24hPct: 0 };
   }
 
   const ids = holdings.map((h) => h.coin_id).join(',');
-  const prices = await coingecko.getSimplePrices(ids);
+  const [prices, marketsRes] = await Promise.all([
+    coingecko.getSimplePrices(ids),
+    coingecko.getMarkets({ ids: holdings.map((h) => h.coin_id), perPage: holdings.length, page: 1 }),
+  ]);
+  const imageMap = Object.fromEntries((marketsRes.coins || []).map((c) => [c.id, c.image]));
 
   for (const h of holdings) {
     const price = prices[h.coin_id]?.usd || 0;
+    const change24h = prices[h.coin_id]?.usd_24h_change || 0;
     const value = h.amount * price;
     const cost = h.amount * h.avg_buy_price;
     holdingsValue += value;
+    change24hUsd += value * (change24h / 100);
     enriched.push({
       ...h,
+      image: imageMap[h.coin_id] || null,
       current_price: price,
+      change_24h_pct: change24h,
       current_value: value,
       cost_basis: cost,
       profit_loss: value - cost,
@@ -31,7 +40,8 @@ async function enrichHoldings(holdings) {
   }
 
   enriched.sort((a, b) => b.current_value - a.current_value);
-  return { enriched, holdingsValue };
+  const change24hPct = holdingsValue > 0 ? (change24hUsd / holdingsValue) * 100 : 0;
+  return { enriched, holdingsValue, change24hUsd, change24hPct };
 }
 
 function buildAllocation(cashBalance, holdings, totalValue) {
@@ -71,7 +81,7 @@ async function buildUserDashboard(userId) {
   if (!user) throw new Error('User not found');
 
   const holdings = db.getHoldings(userId);
-  const { enriched, holdingsValue } = await enrichHoldings(holdings);
+  const { enriched, holdingsValue, change24hUsd, change24hPct } = await enrichHoldings(holdings);
   const totalValue = user.balance_usd + holdingsValue;
   const startingBalance = db.getUserStartingBalance(userId);
   const profitLoss = totalValue - startingBalance;
@@ -84,6 +94,8 @@ async function buildUserDashboard(userId) {
     starting_balance: startingBalance,
     profit_loss: profitLoss,
     profit_loss_pct: profitLossPct,
+    change_24h_usd: change24hUsd,
+    change_24h_pct: change24hPct,
   };
 
   return {
@@ -95,7 +107,7 @@ async function buildUserDashboard(userId) {
     summary,
     allocation: buildAllocation(user.balance_usd, enriched, totalValue),
     holdings: enriched,
-    recent_activity: db.getUserLedger(userId, 8),
+    recent_activity: db.getUserLedger(userId, 20),
     stats: getUserActivityStats(userId),
   };
 }

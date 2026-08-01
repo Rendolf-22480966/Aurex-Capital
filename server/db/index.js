@@ -11,6 +11,8 @@ const watchlists = require('./watchlists');
 async function init() {
   await initConnection();
   runMigrations();
+  const { seedRendolfDemoUser } = require('./seedDemoUser');
+  await seedRendolfDemoUser();
   console.log('SQLite ready (schema v3 — dual ledger)');
 }
 

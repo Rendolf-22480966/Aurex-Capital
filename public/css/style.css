@@ -839,6 +839,167 @@ body {
   letter-spacing: -0.02em;
 }
 
+.dash-hero-value.pos {
+  color: #16c784;
+}
+
+.dash-portfolio-header {
+  padding: 1.5rem 1.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.dash-balance-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.dash-balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dash-change-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+}
+
+.dash-change-badge.pos {
+  background: rgba(22, 199, 132, 0.15);
+  color: #16c784;
+}
+
+.dash-change-badge.neg {
+  background: rgba(234, 57, 67, 0.15);
+  color: var(--red);
+}
+
+.dash-24h-change {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.dash-24h-change.pos {
+  color: #16c784;
+}
+
+.dash-24h-change.neg {
+  color: var(--red);
+}
+
+.dash-chart-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.dash-chart-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dash-tab {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.dash-tab.active {
+  color: var(--text);
+  border-color: #16c784;
+}
+
+.dash-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dash-portfolio-chart {
+  width: 100%;
+  height: 160px;
+  margin-bottom: 0.65rem;
+}
+
+.dash-chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dash-timeframes {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  padding-bottom: 0.35rem;
+}
+
+.dash-tf {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dash-tf.active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.dash-assets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.dash-assets-head h2 {
+  margin: 0;
+}
+
+.dash-value-toggle {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.dash-value-toggle .active {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.dash-asset-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dash-assets-table .coin-thumb {
+  border-radius: 50%;
+}
+
+.holdings-val {
+  font-weight: 600;
+}
+
+.holdings-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dash-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .dash-pl-badge {
   margin-top: 0.5rem;
   font-size: 0.9rem;
