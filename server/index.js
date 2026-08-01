@@ -8,10 +8,12 @@ const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const publicDir = path.join(__dirname, '..', 'public');
 const indexHtml = path.join(publicDir, 'index.html');
+const adminHtml = path.join(publicDir, 'admin.html');
 
 const app = express();
 
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.static(publicDir, {
   setHeaders(res, filePath) {
@@ -31,13 +33,20 @@ function sendApp(req, res, next) {
   });
 }
 
+function sendAdmin(req, res, next) {
+  res.sendFile(adminHtml, (err) => {
+    if (err) next(err);
+  });
+}
+
 async function start() {
   await db.init();
   const { router: apiRouter } = require('./routes/api');
   app.use('/api', apiRouter);
 
+  app.get('/admin', sendAdmin);
   app.get('/', sendApp);
-  app.get(/^\/(?!api(?:\/|$)).*/, sendApp);
+  app.get(/^\/(?!api(?:\/|$)|admin(?:\/|$)).*/, sendApp);
 
   app.use((err, req, res, next) => {
     console.error(err);

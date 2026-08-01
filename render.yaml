@@ -13,5 +13,9 @@ services:
         generateValue: true
       - key: COINGECKO_API_KEY
         sync: false
+      - key: APP_URL
+        sync: false
       - key: DATA_DIR
         value: /tmp/aurex-data
+      - key: RATE_LIMIT_MARKET_MAX
+        value: "90"

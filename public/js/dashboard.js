@@ -138,7 +138,7 @@ async function loadOverview() {
   try {
     let data;
     try {
-      data = await api.getDashboard();
+      data = await api.getMarketDashboard();
     } catch (dashErr) {
       if (String(dashErr.message).includes('404') || String(dashErr.message).includes('Not found')) {
         throw new Error('Server out of date — stop the old server and run: npm start');
@@ -459,13 +459,24 @@ function bindDashboardEvents() {
 
     if (watchId) {
       e.stopPropagation();
-      toggleWatchlist(watchId);
-      const btn = e.target.closest('[data-watch]');
-      if (btn) {
-        const on = isWatchlisted(watchId);
-        btn.textContent = btn.classList.contains('watch-toggle') ? (on ? '★ Watchlisted' : '☆ Add to Watchlist') : (on ? '★' : '☆');
-        btn.classList.toggle('active', on);
-      }
+      toggleWatchlist(watchId)
+        .then((on) => {
+          const btn = e.target.closest('[data-watch]');
+          if (btn) {
+            btn.textContent = btn.classList.contains('watch-toggle')
+              ? on
+                ? '★ Watchlisted'
+                : '☆ Add to Watchlist'
+              : on
+                ? '★'
+                : '☆';
+            btn.classList.toggle('active', on);
+          }
+          if (state.callbacks.onWatchlistChange) state.callbacks.onWatchlistChange();
+        })
+        .catch((err) => {
+          if (state.callbacks.onToast) state.callbacks.onToast(err.message, 'error');
+        });
       return;
     }
 

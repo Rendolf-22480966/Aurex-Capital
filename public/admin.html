@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aurex Capital — Admin Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=13" />
+  <link rel="stylesheet" href="/css/admin.css?v=13" />
+</head>
+<body class="admin-body">
+  <div id="adminLogin" class="admin-login">
+    <div class="admin-login-card">
+      <div class="admin-login-brand">
+        <span class="admin-logo">◆</span>
+        <h1>Aurex Admin</h1>
+        <p>Authorized personnel only</p>
+      </div>
+      <form id="adminLoginForm">
+        <label>Email<input id="adminLoginEmail" type="email" required autocomplete="username" value="admin@aurex.capital" /></label>
+        <label>Password<input id="adminLoginPassword" type="password" required autocomplete="current-password" /></label>
+        <p id="adminLoginError" class="auth-error"></p>
+        <button type="submit" class="btn btn-admin btn-block">Sign In</button>
+      </form>
+      <p class="admin-login-foot"><a href="/">← Back to platform</a></p>
+    </div>
+  </div>
+
+  <div id="adminApp" class="admin-app hidden">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-brand">
+        <span class="admin-logo">◆</span>
+        <div>
+          <strong>Aurex Admin</strong>
+          <span>Control Center</span>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <button class="admin-nav-btn active" data-panel="overview">Overview</button>
+        <button class="admin-nav-btn" data-panel="users">Users</button>
+        <button class="admin-nav-btn" data-panel="audit">Audit Log</button>
+      </nav>
+      <div class="admin-sidebar-foot">
+        <a href="/" class="admin-back-link">← User Platform</a>
+        <button id="adminLogoutBtn" type="button" class="btn btn-ghost btn-sm btn-block">Sign Out</button>
+      </div>
+    </aside>
+
+    <div class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <h1 id="adminPageTitle">Overview</h1>
+          <p id="adminPageSub" class="admin-page-sub">Platform statistics and system health</p>
+        </div>
+        <div class="admin-topbar-user">
+          <span id="adminUserLabel">Administrator</span>
+        </div>
+      </header>
+
+      <section id="panelOverview" class="admin-panel active">
+        <div id="adminOverviewStats" class="stats-grid"></div>
+        <div id="adminIntegrity" class="audit-status"></div>
+        <div class="admin-panels-row">
+          <div class="panel">
+            <h2>Recent Audit Events</h2>
+            <div id="adminRecentAudit" class="admin-audit-preview"></div>
+          </div>
+          <div class="panel">
+            <h2>Quick Reference</h2>
+            <ul class="admin-ref-list">
+              <li>User actions appear in their Activity feed with friendly labels</li>
+              <li>All admin operations are hash-chained in the audit log</li>
+              <li>Deposit / withdraw updates cash balance instantly</li>
+              <li>Credit crypto adds holdings without a user trade</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="panelUsers" class="admin-panel">
+        <div class="admin-user-toolbar">
+          <div class="admin-filter-tabs">
+            <button type="button" class="admin-filter active" data-filter="all">All</button>
+            <button type="button" class="admin-filter" data-filter="active">Active</button>
+            <button type="button" class="admin-filter" data-filter="suspended">Suspended</button>
+            <button type="button" class="admin-filter" data-filter="deleted">Deleted</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="market-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Balance</th>
+                <th>Trades</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="panelAudit" class="admin-panel">
+        <div class="admin-audit-toolbar">
+          <div id="adminAuditFilters" class="admin-filter-tabs"></div>
+          <div class="admin-audit-actions">
+            <button id="adminVerifyChainBtn" type="button" class="btn btn-outline btn-sm">Verify Chain</button>
+            <button id="adminExportAuditBtn" type="button" class="btn btn-outline btn-sm">Export JSON</button>
+          </div>
+        </div>
+        <div id="adminAuditIntegrity" class="audit-status"></div>
+        <div id="adminChainStrip" class="audit-chain-strip hidden"></div>
+        <div id="adminVerifyReport" class="audit-verify-report hidden"></div>
+        <div class="table-scroll">
+          <table class="market-table admin-audit-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Status</th>
+                <th>Action</th>
+                <th>Admin</th>
+                <th>Target</th>
+                <th>Details</th>
+                <th>Hash</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="adminAuditBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="adminUserModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card admin-user-detail-card">
+      <button id="closeUserModal" class="close-panel">&times;</button>
+      <h2 id="userDetailTitle">User Details</h2>
+      <div id="userDetailBody"></div>
+      <div id="userDetailActions" class="admin-detail-actions"></div>
+    </div>
+  </div>
+
+  <div id="adminActionModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <button id="closeAdminModal" class="close-panel">&times;</button>
+      <h2 id="adminActionTitle">Admin Action</h2>
+      <p id="adminActionUser" class="modal-sub"></p>
+      <form id="adminActionForm">
+        <input id="adminActionUserId" type="hidden" />
+        <input id="adminActionType" type="hidden" />
+        <label id="adminAmountWrap">Amount (USD)<input id="adminAmount" type="number" min="0" step="0.01" /></label>
+        <div id="adminCryptoFields" class="hidden">
+          <label>Coin ID<input id="adminCoinId" type="text" placeholder="bitcoin" /></label>
+          <label>Symbol<input id="adminCoinSymbol" type="text" placeholder="BTC" /></label>
+          <label>Quantity<input id="adminCoinQty" type="number" min="0" step="any" /></label>
+          <label>Price USD (optional)<input id="adminCoinPrice" type="number" min="0" step="any" /></label>
+        </div>
+        <label>Note (shown to user)<input id="adminNote" type="text" placeholder="Optional message" /></label>
+        <p id="adminActionError" class="auth-error"></p>
+        <button type="submit" class="btn btn-admin btn-block">Confirm</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="adminAuditModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card admin-audit-detail-card">
+      <button id="closeAuditModal" class="close-panel">&times;</button>
+      <h2 id="auditDetailTitle">Audit Record</h2>
+      <div id="auditDetailBody"></div>
+    </div>
+  </div>
+
+  <div id="adminToast" class="auth-toast hidden"></div>
+
+  <script type="module" src="/js/admin-app.js?v=13"></script>
+</body>
+</html>

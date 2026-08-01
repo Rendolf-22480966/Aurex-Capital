@@ -1,6 +1,16 @@
 import { api, getToken, setToken } from './api.js';
 import { formatUsd, formatPct, formatNumber, pctClass } from './format.js';
 import { initDashboard, onViewActivated, openCoin, dashboardState } from './dashboard.js';
+import { initWatchlist, syncWatchlistOnLogin, clearWatchlistCache } from './watchlist.js';
+import {
+  initUserDashboard,
+  loadUserDashboard,
+  loadOverviewWidget,
+  onDashboardActivated,
+  onDashboardDeactivated,
+  ledgerTypeClass,
+  formatLedgerAmount,
+} from './userDashboard.js';
 
 const state = { user: null, currentView: 'overview' };
 const $ = (sel) => document.querySelector(sel);
@@ -14,9 +24,10 @@ function showView(name) {
   if (['overview', 'markets', 'trending', 'gainers', 'losers', 'watchlist', 'coin'].includes(name)) {
     onViewActivated(name);
   }
-  if (name === 'portfolio') loadPortfolio();
-  if (name === 'trades') loadPortfolio(true);
-  if (name === 'admin') loadAdmin();
+  if (name === 'dashboard') onDashboardActivated();
+  else onDashboardDeactivated();
+  if (name === 'trades') loadActivity();
+  if (name === 'overview') loadOverviewWidget();
 }
 
 function capitalize(s) {
@@ -24,28 +35,112 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function renderLedgerRow(entry) {
+  const total = entry.total_usd != null ? formatUsd(entry.total_usd) : '—';
+  return `<tr>
+    <td>${new Date(entry.created_at).toLocaleString()}</td>
+    <td><span class="ledger-type ${ledgerTypeClass(entry.type)}">${entry.label}</span></td>
+    <td>${entry.description}${entry.coin_name ? `<div class="coin-symbol">${entry.coin_name}</div>` : ''}</td>
+    <td>${formatLedgerAmount(entry)}</td>
+    <td>${total}</td>
+    <td>${entry.status}</td>
+  </tr>`;
+}
+
+function displayName(user) {
+  if (!user) return '';
+  if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
+  return user.email || user.username;
+}
+
 function updateAuthUI() {
   const loggedIn = !!state.user;
   $('#userPanel')?.classList.toggle('hidden', !loggedIn);
   $('#loginBtn')?.classList.toggle('hidden', loggedIn);
-  $$('.admin-only').forEach((el) => {
-    el.classList.toggle('hidden', !(loggedIn && state.user?.role === 'admin'));
+  $$('.user-only').forEach((el) => {
+    el.classList.toggle('hidden', !loggedIn);
   });
+  const needsVerify = loggedIn && state.user && !state.user.email_verified;
+  $('#verifyBanner')?.classList.toggle('hidden', !needsVerify);
   if (loggedIn) {
     $('#headerBalance').textContent = formatUsd(state.user.balance_usd);
-    $('#headerUsername').textContent = state.user.username;
+    $('#headerUsername').textContent = displayName(state.user);
   }
 }
 
-function openAuth(mode = 'login') {
+function showToast(message, type = 'success') {
+  const el = $('#authToast');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `auth-toast ${type}`;
+  el.classList.remove('hidden');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => el.classList.add('hidden'), 6000);
+}
+
+function showDevPreview(url, label) {
+  if (!url) return;
+  console.info(`[Aurex dev] ${label}:`, url);
+  showToast(`${label} (dev): check browser console for link`);
+}
+
+function openAuth(mode = 'login', { resetToken = '' } = {}) {
   $('#authModal')?.classList.remove('hidden');
   $('#authError').textContent = '';
+  $('#authSuccess').textContent = '';
+
   const isLogin = mode === 'login';
-  $('#authTitle').textContent = isLogin ? 'Sign In' : 'Create Account';
-  $('#authSubmit').textContent = isLogin ? 'Sign In' : 'Register';
-  $('#authSwitchText').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-  $('#authSwitchBtn').textContent = isLogin ? 'Register' : 'Sign In';
+  const isRegister = mode === 'register';
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
+
+  const titles = {
+    login: 'Sign In',
+    register: 'Create Account',
+    forgot: 'Forgot Password',
+    reset: 'Reset Password',
+  };
+  const subtitles = {
+    login: 'Start with $10,000 virtual USD',
+    register: 'Start with $10,000 virtual USD',
+    forgot: 'Enter your email and we will send a reset link',
+    reset: 'Choose a new password for your account',
+  };
+  const submitLabels = {
+    login: 'Sign In',
+    register: 'Register',
+    forgot: 'Send reset link',
+    reset: 'Update password',
+  };
+
+  $('#authTitle').textContent = titles[mode] || 'Sign In';
+  $('#authSubtitle').textContent = subtitles[mode] || '';
+  $('#authSubmit').textContent = submitLabels[mode] || 'Continue';
   $('#authForm').dataset.mode = mode;
+
+  $('#authRegisterFields')?.classList.toggle('hidden', !isRegister);
+  $('#authConfirmWrap')?.classList.toggle('hidden', !(isRegister || isReset));
+  $('#authForgotWrap')?.classList.toggle('hidden', !isLogin);
+  $('#authPasswordWrap')?.classList.toggle('hidden', isForgot);
+  $('#authSwitchRow')?.classList.toggle('hidden', isForgot || isReset);
+
+  $('#authFirstName').required = isRegister;
+  $('#authLastName').required = isRegister;
+  $('#authPassword').required = !isForgot;
+  $('#authConfirmPassword').required = isRegister || isReset;
+  $('#authResetToken').value = isReset ? resetToken : '';
+
+  if (isLogin) {
+    $('#authSwitchText').textContent = "Don't have an account?";
+    $('#authSwitchBtn').textContent = 'Register';
+  } else if (isRegister) {
+    $('#authSwitchText').textContent = 'Already have an account?';
+    $('#authSwitchBtn').textContent = 'Sign In';
+  } else if (isForgot || isReset) {
+    $('#authSwitchRow')?.classList.remove('hidden');
+    $('#authSwitchText').textContent = '';
+    $('#authSwitchBtn').textContent = 'Back to sign in';
+  }
 }
 
 function closeAuth() {
@@ -54,13 +149,15 @@ function closeAuth() {
 }
 
 async function initAuth() {
-  if (!getToken()) return;
   try {
     const { user } = await api.me();
     state.user = user;
     updateAuthUI();
+    await initWatchlist();
+    loadOverviewWidget();
   } catch {
     setToken(null);
+    clearWatchlistCache();
   }
 }
 
@@ -98,6 +195,7 @@ async function executeTrade() {
     msg.classList.add('success');
     $('#tradeAmount').value = '';
     updateTradeEstimate();
+    if (state.currentView === 'dashboard') loadUserDashboard();
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('error');
@@ -121,53 +219,16 @@ function updateTradeEstimate() {
   if (el) el.textContent = formatUsd(amount * price);
 }
 
-async function loadPortfolio(tradesOnly = false) {
+async function loadActivity() {
   if (!state.user) {
-    const msg = '<tr><td colspan="6" class="empty-state">Sign in to view your portfolio</td></tr>';
-    $('#holdingsTableBody').innerHTML = msg;
-    $('#tradesTableBody').innerHTML = msg;
+    $('#tradesTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Sign in to view your activity</td></tr>';
     return;
   }
   try {
-    const data = await api.getPortfolio();
-    state.user = data.user;
-    updateAuthUI();
-    if (!tradesOnly) {
-      $('#portfolioSummary').innerHTML = `
-        <div class="stat-card"><div class="stat-label">Total Value</div><div class="stat-value">${formatUsd(data.summary.total_value)}</div></div>
-        <div class="stat-card"><div class="stat-label">Cash</div><div class="stat-value">${formatUsd(data.summary.cash_balance)}</div></div>
-        <div class="stat-card"><div class="stat-label">Holdings</div><div class="stat-value">${formatUsd(data.summary.holdings_value)}</div></div>
-        <div class="stat-card"><div class="stat-label">P/L</div><div class="stat-value ${pctClass(data.summary.profit_loss)}">${formatUsd(data.summary.profit_loss)} (${formatPct(data.summary.profit_loss_pct)})</div></div>`;
-      $('#holdingsTableBody').innerHTML = data.holdings.length
-        ? data.holdings.map((h) => `
-          <tr><td><div class="coin-name">${h.coin_name}</div><div class="coin-symbol">${h.coin_symbol}</div></td>
-          <td>${formatNumber(h.amount)}</td><td>${formatUsd(h.avg_buy_price)}</td><td>${formatUsd(h.current_price)}</td>
-          <td>${formatUsd(h.current_value)}</td><td class="${pctClass(h.profit_loss)}">${formatUsd(h.profit_loss)} (${formatPct(h.profit_loss_pct)})</td></tr>`).join('')
-        : '<tr><td colspan="6" class="empty-state">No holdings yet</td></tr>';
-    }
-    $('#tradesTableBody').innerHTML = data.trades.length
-      ? data.trades.map((t) => `
-        <tr><td>${new Date(t.created_at).toLocaleString()}</td><td>${t.coin_name} (${t.coin_symbol})</td>
-        <td class="side-${t.side}">${t.side.toUpperCase()}</td><td>${formatNumber(t.amount_coin)}</td>
-        <td>${formatUsd(t.price_usd)}</td><td>${formatUsd(t.total_usd)}</td></tr>`).join('')
-      : '<tr><td colspan="6" class="empty-state">No trades yet</td></tr>';
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function loadAdmin() {
-  if (!state.user || state.user.role !== 'admin') return;
-  try {
-    const { users, stats } = await api.adminUsers();
-    $('#adminStats').innerHTML = `
-      <div class="stat-card"><div class="stat-label">Users</div><div class="stat-value">${stats.user_count}</div></div>
-      <div class="stat-card"><div class="stat-label">Total Trades</div><div class="stat-value">${stats.trade_count}</div></div>
-      <div class="stat-card"><div class="stat-label">Trades Today</div><div class="stat-value">${stats.trades_today}</div></div>`;
-    $('#adminTableBody').innerHTML = users.map((u) => `
-      <tr><td>${u.username}</td><td>${u.role}</td><td>${formatUsd(u.balance_usd)}</td><td>${u.trade_count}</td>
-      <td>${new Date(u.created_at).toLocaleDateString()}</td>
-      <td>${u.role === 'user' ? `<button class="btn-outline reset-user" data-id="${u.id}">Reset</button>` : '—'}</td></tr>`).join('');
+    const { transactions } = await api.getTransactions();
+    $('#tradesTableBody').innerHTML = transactions.length
+      ? transactions.map(renderLedgerRow).join('')
+      : '<tr><td colspan="6" class="empty-state">No activity yet</td></tr>';
   } catch (err) {
     console.error(err);
   }
@@ -187,23 +248,79 @@ function bindEvents() {
 
   $('#backToMarkets')?.addEventListener('click', () => showView('markets'));
   $('#loginBtn')?.addEventListener('click', () => openAuth('login'));
-  $('#logoutBtn')?.addEventListener('click', () => { setToken(null); state.user = null; updateAuthUI(); });
+  $('#logoutBtn')?.addEventListener('click', async () => {
+    try { await api.logout(); } catch { /* ignore */ }
+    setToken(null);
+    clearWatchlistCache();
+    state.user = null;
+    updateAuthUI();
+    $('#overviewUserDash')?.classList.add('hidden');
+    onDashboardDeactivated();
+  });
   $('#closeAuthModal')?.addEventListener('click', closeAuth);
   $('.modal-backdrop')?.addEventListener('click', closeAuth);
   $('#authSwitchBtn')?.addEventListener('click', () => {
-    openAuth($('#authForm').dataset.mode === 'login' ? 'register' : 'login');
+    const mode = $('#authForm').dataset.mode;
+    if (mode === 'forgot' || mode === 'reset') openAuth('login');
+    else openAuth(mode === 'login' ? 'register' : 'login');
+  });
+  $('#authForgotBtn')?.addEventListener('click', () => openAuth('forgot'));
+
+  $('#resendVerifyBtn')?.addEventListener('click', async () => {
+    const msg = $('#verifyBannerMsg');
+    if (msg) msg.textContent = '';
+    try {
+      const result = await api.resendVerification();
+      if (msg) msg.textContent = result.message;
+      showDevPreview(result.devPreviewUrl, 'Verification link');
+    } catch (err) {
+      if (msg) msg.textContent = err.message;
+    }
   });
 
   $('#authForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const mode = $('#authForm').dataset.mode;
+    $('#authError').textContent = '';
+    $('#authSuccess').textContent = '';
     try {
-      const fn = mode === 'login' ? api.login : api.register;
-      const { token, user } = await fn($('#authUsername').value.trim(), $('#authPassword').value);
-      setToken(token);
-      state.user = user;
-      updateAuthUI();
-      closeAuth();
+      if (mode === 'login') {
+        const result = await api.login($('#authEmail').value.trim(), $('#authPassword').value);
+        setToken(result.token);
+        state.user = result.user;
+        await syncWatchlistOnLogin();
+        updateAuthUI();
+        closeAuth();
+        loadOverviewWidget();
+      } else if (mode === 'register') {
+        const result = await api.register({
+          firstName: $('#authFirstName').value.trim(),
+          lastName: $('#authLastName').value.trim(),
+          email: $('#authEmail').value.trim(),
+          password: $('#authPassword').value,
+          confirmPassword: $('#authConfirmPassword').value,
+        });
+        setToken(result.token);
+        state.user = result.user;
+        await syncWatchlistOnLogin();
+        updateAuthUI();
+        closeAuth();
+        loadOverviewWidget();
+        showToast('Account created — check your email to verify');
+        showDevPreview(result.devPreviewUrl, 'Verification link');
+      } else if (mode === 'forgot') {
+        const result = await api.forgotPassword($('#authEmail').value.trim());
+        $('#authSuccess').textContent = result.message;
+        showDevPreview(result.devPreviewUrl, 'Password reset link');
+      } else if (mode === 'reset') {
+        const result = await api.resetPassword({
+          token: $('#authResetToken').value.trim(),
+          password: $('#authPassword').value,
+          confirmPassword: $('#authConfirmPassword').value,
+        });
+        $('#authSuccess').textContent = result.message;
+        setTimeout(() => openAuth('login'), 1500);
+      }
     } catch (err) {
       $('#authError').textContent = err.message;
     }
@@ -218,21 +335,63 @@ function bindEvents() {
 
   $('#tradeAmount')?.addEventListener('input', updateTradeEstimate);
   $('#executeTradeBtn')?.addEventListener('click', executeTrade);
+}
 
-  $('#adminTableBody')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.reset-user');
-    if (!btn || !confirm('Reset user?')) return;
-    await api.adminReset(btn.dataset.id);
-    loadAdmin();
-  });
+async function handleAuthUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const verifyToken = params.get('verify');
+  const resetToken = params.get('reset');
+
+  if (verifyToken) {
+    params.delete('verify');
+    const next = params.toString() ? `?${params}` : window.location.pathname;
+    window.history.replaceState({}, '', next);
+    try {
+      const result = await api.verifyEmail(verifyToken);
+      showToast(result.message || 'Email verified');
+      if (state.user) {
+        const { user } = await api.me();
+        state.user = user;
+        updateAuthUI();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  if (resetToken) {
+    params.delete('reset');
+    const next = params.toString() ? `?${params}` : window.location.pathname;
+    window.history.replaceState({}, '', next);
+    openAuth('reset', { resetToken });
+  }
 }
 
 async function init() {
   dashboardState.tradeSide = 'buy';
-  initDashboard({ onNavigate: (view) => showView(view) });
+  initDashboard({
+    onNavigate: (view) => showView(view),
+    onWatchlistChange: () => {
+      if (state.currentView === 'watchlist') onViewActivated('watchlist');
+    },
+    onToast: showToast,
+  });
+  initUserDashboard({
+    getUser: () => state.user,
+    onNavigate: (view) => showView(view),
+    onOpenCoin: (id) => openCoin(id),
+    onSignIn: () => openAuth('login'),
+    onUserUpdate: (data) => {
+      if (state.user && data?.summary) {
+        state.user.balance_usd = data.summary.cash_balance;
+        updateAuthUI();
+      }
+    },
+  });
   bindEvents();
   updateTradeUI();
   await initAuth();
+  await handleAuthUrlParams();
 
   try {
     await api.getHealth();

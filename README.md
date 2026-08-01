@@ -1,6 +1,8 @@
-# Aurex Capital — Live CoinGecko Dashboard
+# Aurex Capital — Live Crypto Paper Trading Platform
 
-Paper trading platform with a **live cryptocurrency market terminal** powered by the [CoinGecko API](https://www.coingecko.com/en/api).
+Level 400 cryptography / end-of-school project. Paper trading with **live CoinGecko market data**, user dashboards, dual ledger, hash-chained admin audit log, and a separate admin console.
+
+**GitHub:** [Rendolf-22480966/Aurex-Capital](https://github.com/Rendolf-22480966/Aurex-Capital)
 
 ## Quick start
 
@@ -8,127 +10,146 @@ Paper trading platform with a **live cryptocurrency market terminal** powered by
 git clone https://github.com/Rendolf-22480966/Aurex-Capital.git
 cd Aurex-Capital
 npm install
+cp .env.example .env   # optional — edit JWT_SECRET / COINGECKO_API_KEY
 npm start
 ```
 
-Open **http://localhost:3000**
+| URL | Purpose |
+|-----|---------|
+| http://localhost:3000 | User platform (markets, trading, dashboard) |
+| http://localhost:3000/admin | Admin console (separate UI) |
+| http://localhost:3000/api/health | API version + feature flags |
 
-## Deploy (live demo for lecturer / portfolio)
+## Features
 
-### Why Netlify showed "Page not found"
-
-Aurex Capital is **not a static website**. It needs:
-
-- **Node.js server** (Express) for `/api/*` routes
-- **CoinGecko API proxy** (API key stays on server)
-- **SQLite** for paper trading accounts
-
-Netlify’s default hosting only serves static files (`HTML/CSS/JS`). It **cannot** run your Express backend, so you get a broken site or Netlify’s 404 page.
-
-### Recommended: Railway (easiest — works on your phone)
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/new/template?template=https://github.com/Rendolf-22480966/Aurex-Capital)
-
-**Or manual setup:**
-
-1. Go to **[railway.com/new/github](https://railway.com/new/github)** → sign in with GitHub
-2. Select repo **`Rendolf-22480966/Aurex-Capital`**
-3. Click the service → **Variables** → add only these two:
-   - `JWT_SECRET` = `aurex-capital-rendolf-2026-secret`
-   - `COINGECKO_API_KEY` = your CoinGecko demo key
-4. **Settings → Networking → Generate Domain**
-5. Open your URL on your phone — login: `admin` / `admin123`
-
-No volume setup needed for testing (database uses `/tmp` automatically on Railway).
-
-**Verify:** `https://YOUR-URL/health` → `{"ok":true,"service":"aurex-capital"}`
-
-### Alternative: Render (free, works with this project)
-
-**Important:** You must use **Web Service**, not **Static Site**. A Static Site cannot run Node/Express and will always show 404 or a blank page.
-
-1. Push your code to **GitHub**
-2. Go to [render.com](https://render.com) → **New → Web Service** (not Static Site)
-3. Connect repo: `Rendolf-22480966/Aurex-Capital`
-4. Settings:
-   - **Root directory:** leave blank
-   - **Runtime:** Node
-   - **Build command:** `npm install && npm rebuild better-sqlite3 --build-from-source`
-   - **Start command:** `npm start`
-   - **Publish directory:** leave empty
-5. **Environment variables** (Render dashboard → Environment):
-   - `COINGECKO_API_KEY` = your CoinGecko Demo key
-   - `JWT_SECRET` = any long random string (e.g. 32+ chars)
-   - `DATA_DIR` = `/tmp/aurex-data` (optional; SQLite storage on Render)
-6. Deploy → open `https://your-app.onrender.com`
-
-**Verify it works:** open `https://your-app.onrender.com/health` — you should see `{"ok":true,"service":"aurex-capital"}`.
-
-Or use the included `render.yaml` for Blueprint deploy (**New → Blueprint** → connect repo).
-
-#### If you still see 404 or timeout
-
-| Symptom | Fix |
-|---------|-----|
-| **404 Not Found** on `/` and `/health` | You likely created a **Static Site**. Delete it and create a **Web Service** instead. |
-| **Request timed out** (60–120s) | Deploy failed or app crashed on start. Open Render → **Logs** and look for `better-sqlite3` or `EADDRINUSE` errors. |
-| **502 Bad Gateway** | Server starting — wait 30s on free tier (cold start), then refresh. |
-| Build fails on `better-sqlite3` | Set build command to `npm install && npm rebuild better-sqlite3 --build-from-source` |
-
-### Netlify (not recommended for this app)
-
-Netlify static deploy will **not** run live CoinGecko data or paper trading. If you only need a static preview of the UI, set **Publish directory** to `public` — but **Overview/Markets will not load real data** without a backend.
-
-Use **Render** or **Railway** instead for the full dashboard.
-
-### Vercel
-
-Same limitation as Netlify for Express + SQLite — use Render unless you refactor to serverless functions.
-
-## Environment variables
-
-Create a `.env` file in the project root (copy from `.env.example`):
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `COINGECKO_API_KEY` | Recommended | Free Demo key from [coingecko.com/api](https://www.coingecko.com/en/api) |
-| `JWT_SECRET` | Recommended | Random string for auth tokens |
-| `PORT` | Optional | Server port (default `3000`) |
-| `COINGECKO_API_BASE` | Optional | Default `https://api.coingecko.com/api/v3` |
-
-**Never commit `.env` to GitHub.** The API key stays server-side only.
-
-## CoinGecko endpoints used
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /coins/markets` | Market table, gainers, losers, watchlist |
-| `GET /global` | Global market overview stats |
-| `GET /search/trending` | Trending coins |
-| `GET /coins/{id}` | Individual coin detail page |
-| `GET /coins/{id}/market_chart` | Price charts (1D–MAX) |
-| `GET /search` | Global coin search |
-| `GET /simple/price` | Paper trade & portfolio pricing |
-
-## Deploy (Render / Railway / Vercel)
-
-- **Render / Railway:** Deploy as Node web service. Set env vars in dashboard. Start command: `npm start`.
-- **Vercel:** Requires serverless API routes refactor; **Render or Railway recommended** for this Express app.
-
-## API plan limitations (Demo / Free)
-
-- Rate limits apply (~10–30 calls/min without key, higher with Demo key)
-- Server caches responses (60s–5min) and queues requests to avoid 429 errors
-- CoinGecko WebSocket requires a paid plan — architecture uses REST polling at safe intervals
-- Historical `max` chart range may be limited on Demo plan (365 days)
+- **Live market terminal** — CoinGecko REST proxy (no mock data)
+- **Paper trading** — $10,000 virtual USD, buy/sell at live prices
+- **User dashboard** — portfolio allocation, holdings, activity feed
+- **Auth** — registration, sessions, email verification, password reset
+- **Dual ledger** — user / admin / system transaction sources
+- **Server watchlist** — synced per account (guests use localStorage)
+- **Admin console** — user management, suspend/activate/delete, fund operations
+- **Audit log** — SHA-256 hash-chained tamper-evident admin actions + verify tool
+- **Rate limiting** — protects auth and market API routes
 
 ## Demo accounts
 
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | admin | admin123 |
+| Role | Email | Password | URL |
+|------|-------|----------|-----|
+| Admin | `admin@aurex.capital` | `admin123` | `/admin` |
+| User | Register any email | your choice | `/` |
 
-Register any username for $10,000 virtual USD paper trading.
+## Testing
+
+```bash
+# Unit tests (audit chain, watchlist — no server needed)
+npm test
+
+# Smoke tests (server must be running on PORT 3000)
+npm start          # terminal 1
+npm run test:smoke # terminal 2
+
+# Smoke against deployed URL
+TEST_BASE_URL=https://your-app.onrender.com npm run test:smoke
+```
+
+### Lecturer demo checklist
+
+1. **Markets** — live prices load, search works, coin detail + chart opens
+2. **Register / login** — new account gets $10,000 virtual balance
+3. **Trade** — buy BTC, see holding + activity update
+4. **Watchlist** — star coins while logged in, refresh — persists
+5. **Dashboard** — allocation bar, recent activity
+6. **Admin** (`/admin`) — login, deposit funds to a user, check audit log
+7. **Verify Chain** — Audit Log → Verify Chain → green integrity report
+8. **Health** — `/api/health` shows `version: 3.8.0`
+
+## Environment variables
+
+Copy `.env.example` → `.env`. **Never commit `.env`.**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | Recommended | Random string for session tokens |
+| `COINGECKO_API_KEY` | Recommended | Demo key from [coingecko.com/api](https://www.coingecko.com/en/api) |
+| `PORT` | Optional | Default `3000` |
+| `APP_URL` | Optional | Base URL for email links |
+| `DATA_DIR` | Optional | SQLite file location (auto `/tmp` on Render/Railway) |
+| `COINGECKO_API_BASE` | Optional | Default CoinGecko v3 URL |
+| `RATE_LIMIT_*_MAX` | Optional | Auth / market / API rate limits |
+
+## Deploy
+
+> **This is a Node.js app, not a static site.** Netlify / GitHub Pages cannot run the backend. Use **Railway** or **Render**.
+
+### Railway (recommended — easy phone demo)
+
+1. [railway.com/new/github](https://railway.com/new/github) → connect **`Rendolf-22480966/Aurex-Capital`**
+2. **Variables:**
+   - `JWT_SECRET` = long random string
+   - `COINGECKO_API_KEY` = your CoinGecko demo key
+3. **Settings → Networking → Generate Domain**
+4. Verify: `https://YOUR-URL/health` → `{"ok":true,"service":"aurex-capital"}`
+5. Verify API: `https://YOUR-URL/api/health` → version + features
+
+Database uses `/tmp/aurex-data` automatically on Railway (no volume required for demos).
+
+### Render (free tier)
+
+Use **Web Service**, not Static Site. Or deploy via included `render.yaml` (Blueprint).
+
+1. [render.com](https://render.com) → **New → Web Service**
+2. Connect repo, settings:
+   - **Build command:** `npm install`
+   - **Start command:** `npm start`
+   - **Health check path:** `/health`
+3. Environment variables:
+   - `JWT_SECRET`, `COINGECKO_API_KEY`
+   - `DATA_DIR=/tmp/aurex-data` (recommended on free tier)
+4. After deploy: `npm run test:smoke` with `TEST_BASE_URL` set to your Render URL
+
+### Post-deploy verification
+
+```bash
+curl https://YOUR-URL/api/health
+curl https://YOUR-URL/health
+TEST_BASE_URL=https://YOUR-URL npm run test:smoke
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| 404 on `/` | Created Static Site instead of Web Service — recreate as Node Web Service |
+| 502 / cold start | Wait 30–60s on free tier, then refresh |
+| CoinGecko 429 | Add `COINGECKO_API_KEY`; server caches + rate-limits client requests |
+| Data lost after redeploy | Free tier `/tmp` is ephemeral — use `DATA_DIR` on a persistent volume for production |
+| Admin login fails | Use `admin@aurex.capital` / `admin123` at `/admin` |
+
+## Architecture
+
+```
+Browser (public/)  →  Express (/api/*)  →  CoinGecko API
+                     ↓
+                  sql.js SQLite (users, trades, audit chain, watchlists)
+```
+
+- **Frontend:** Vanilla HTML/CSS/JS SPA
+- **Backend:** Node.js + Express
+- **Database:** sql.js (pure JS SQLite — no native build step)
+- **Admin UI:** Separate `admin.html` at `/admin`
+
+## CoinGecko endpoints proxied
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /coins/markets` | Markets, gainers, losers, watchlist |
+| `GET /global` | Global stats |
+| `GET /search/trending` | Trending |
+| `GET /coins/{id}` | Coin detail |
+| `GET /coins/{id}/market_chart` | Charts |
+| `GET /search` | Search |
+| `GET /simple/price` | Trade pricing |
 
 ## License
 

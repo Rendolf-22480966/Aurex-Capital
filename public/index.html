@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=6" />
+  <link rel="stylesheet" href="/css/style.css?v=13" />
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -20,14 +20,13 @@
         </a>
         <nav class="nav">
           <button class="nav-btn active" data-view="overview">Overview</button>
+          <button class="nav-btn user-only hidden" data-view="dashboard">Dashboard</button>
           <button class="nav-btn" data-view="markets">Markets</button>
           <button class="nav-btn" data-view="trending">Trending</button>
           <button class="nav-btn" data-view="gainers">Gainers</button>
           <button class="nav-btn" data-view="losers">Losers</button>
           <button class="nav-btn" data-view="watchlist">Watchlist</button>
-          <button class="nav-btn" data-view="portfolio">Portfolio</button>
-          <button class="nav-btn" data-view="trades">History</button>
-          <button class="nav-btn admin-only hidden" data-view="admin">Admin</button>
+          <button class="nav-btn" data-view="trades">Activity</button>
         </nav>
       </div>
       <div class="header-right">
@@ -48,6 +47,14 @@
       </div>
     </header>
 
+    <div id="verifyBanner" class="verify-banner hidden">
+      <span>Please verify your email to secure your account.</span>
+      <button id="resendVerifyBtn" type="button" class="btn btn-ghost btn-sm">Resend email</button>
+      <span id="verifyBannerMsg" class="verify-banner-msg"></span>
+    </div>
+
+    <div id="authToast" class="auth-toast hidden"></div>
+
     <main class="main">
       <!-- OVERVIEW -->
       <section id="viewOverview" class="view active">
@@ -56,6 +63,7 @@
           <p id="overviewMeta" class="subtitle meta-line"></p>
         </div>
         <div id="globalStats" class="stats-grid"></div>
+        <div id="overviewUserDash" class="overview-user-dash hidden"></div>
         <div class="overview-panels">
           <div class="panel">
             <h2>Trending</h2>
@@ -169,6 +177,58 @@
         </div>
       </section>
 
+      <!-- USER DASHBOARD -->
+      <section id="viewDashboard" class="view">
+        <div id="dashGuest" class="dash-guest hidden">
+          <div class="dash-guest-card panel">
+            <h1>Your Dashboard</h1>
+            <p>Sign in to track your portfolio, holdings, and account activity in one place.</p>
+            <button id="dashSignInBtn" type="button" class="btn btn-primary">Sign In</button>
+            <button id="dashExploreBtn" type="button" class="btn btn-ghost">Explore Markets</button>
+          </div>
+        </div>
+        <div id="dashContent" class="hidden">
+          <div class="dash-hero panel">
+            <div>
+              <p id="dashGreeting" class="dash-greeting">Welcome back</p>
+              <div id="dashTotalValue" class="dash-hero-value">$0.00</div>
+              <p id="dashPlBadge" class="dash-pl-badge"></p>
+            </div>
+            <div class="dash-hero-actions">
+              <button id="dashBrowseMarkets" type="button" class="btn btn-primary btn-sm">Browse Markets</button>
+              <button id="dashViewActivity" type="button" class="btn btn-ghost btn-sm">View Activity</button>
+            </div>
+          </div>
+          <div id="dashStats" class="stats-grid"></div>
+          <div class="panel dash-allocation-wrap">
+            <h2>Allocation</h2>
+            <div id="dashAllocation"></div>
+          </div>
+          <div class="dash-grid">
+            <div class="panel dash-holdings-panel">
+              <h2>Holdings</h2>
+              <div class="table-scroll">
+                <table class="market-table">
+                  <thead><tr><th>Asset</th><th>Amount</th><th>Avg Buy</th><th>Price</th><th>Value</th><th>P/L</th><th></th></tr></thead>
+                  <tbody id="dashHoldingsBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="dash-sidebar">
+              <div class="panel">
+                <h2>Account</h2>
+                <div id="dashAccount" class="dash-account"></div>
+                <div id="dashStatsMini" class="dash-stats-mini"></div>
+              </div>
+              <div class="panel">
+                <h2>Recent Activity</h2>
+                <div id="dashActivity" class="dash-activity-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- COIN DETAIL -->
       <section id="viewCoinDetail" class="view">
         <button id="backToMarkets" class="btn btn-ghost btn-sm back-btn">← Back to Markets</button>
@@ -205,37 +265,13 @@
         </div>
       </section>
 
-      <!-- PORTFOLIO -->
-      <section id="viewPortfolio" class="view">
-        <div class="section-header"><h1>Portfolio</h1></div>
-        <div id="portfolioSummary" class="stats-grid"></div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>Asset</th><th>Amount</th><th>Avg Buy</th><th>Price</th><th>Value</th><th>P/L</th></tr></thead>
-            <tbody id="holdingsTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- TRADES -->
+      <!-- TRADES / ACTIVITY -->
       <section id="viewTrades" class="view">
-        <div class="section-header"><h1>Trade History</h1></div>
+        <div class="section-header"><h1>Activity</h1><p class="subtitle meta-line">Deposits, trades, and transfers on your account</p></div>
         <div class="table-scroll">
           <table class="market-table">
-            <thead><tr><th>Date</th><th>Coin</th><th>Side</th><th>Amount</th><th>Price</th><th>Total</th></tr></thead>
+            <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Total</th><th>Status</th></tr></thead>
             <tbody id="tradesTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ADMIN -->
-      <section id="viewAdmin" class="view">
-        <div class="section-header"><h1>Admin</h1></div>
-        <div id="adminStats" class="stats-grid"></div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>User</th><th>Role</th><th>Balance</th><th>Trades</th><th>Joined</th><th></th></tr></thead>
-            <tbody id="adminTableBody"></tbody>
           </table>
         </div>
       </section>
@@ -247,18 +283,25 @@
     <div class="modal-card">
       <button id="closeAuthModal" class="close-panel">&times;</button>
       <h2 id="authTitle">Sign In</h2>
-      <p class="modal-sub">Start with $10,000 virtual USD</p>
+      <p id="authSubtitle" class="modal-sub">Start with $10,000 virtual USD</p>
       <form id="authForm">
-        <label>Username<input id="authUsername" type="text" required autocomplete="username" /></label>
-        <label>Password<input id="authPassword" type="password" required minlength="6" autocomplete="current-password" /></label>
+        <input id="authResetToken" type="hidden" />
+        <div id="authRegisterFields" class="auth-register-fields hidden">
+          <label>First name<input id="authFirstName" type="text" autocomplete="given-name" minlength="2" /></label>
+          <label>Last name<input id="authLastName" type="text" autocomplete="family-name" minlength="2" /></label>
+        </div>
+        <label id="authEmailWrap">Email<input id="authEmail" type="email" required autocomplete="email" /></label>
+        <label id="authPasswordWrap">Password<input id="authPassword" type="password" required minlength="8" autocomplete="current-password" /></label>
+        <label id="authConfirmWrap" class="hidden">Confirm password<input id="authConfirmPassword" type="password" minlength="8" autocomplete="new-password" /></label>
+        <p id="authForgotWrap" class="auth-forgot hidden"><button type="button" id="authForgotBtn" class="link-btn">Forgot password?</button></p>
+        <p id="authSuccess" class="auth-success"></p>
         <p id="authError" class="auth-error"></p>
         <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Sign In</button>
       </form>
-      <p class="auth-switch"><span id="authSwitchText">Don't have an account?</span> <button type="button" id="authSwitchBtn" class="link-btn">Register</button></p>
-      <p class="demo-hint">Demo admin: <code>admin</code> / <code>admin123</code></p>
+      <p id="authSwitchRow" class="auth-switch"><span id="authSwitchText">Don't have an account?</span> <button type="button" id="authSwitchBtn" class="link-btn">Register</button></p>
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=6"></script>
+  <script type="module" src="/js/app.js?v=13"></script>
 </body>
 </html>

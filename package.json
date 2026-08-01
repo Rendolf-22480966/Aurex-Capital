@@ -7,6 +7,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "build": "npm install",
+    "test": "node --test tests/unit/audit.test.js tests/unit/watchlist.test.js",
+    "test:smoke": "node tests/smoke.js",
     "tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3000",
     "tunnel:lt": "npx --yes localtunnel --port 3000"
   },
