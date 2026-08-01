@@ -15,14 +15,14 @@ const REF_PRICES = {
   chainlink: 18.45,
 };
 
-const TARGET_TOTAL = 7054;
+const TARGET_TOTAL = 74678;
 
 const HOLDINGS = [
-  { coin_id: 'ethereum', coin_symbol: 'ETH', coin_name: 'Ethereum', quantity: 0.52, avg_cost_usd: 3842.5 },
-  { coin_id: 'bitcoin', coin_symbol: 'BTC', coin_name: 'Bitcoin', quantity: 0.009, avg_cost_usd: 61200 },
-  { coin_id: 'solana', coin_symbol: 'SOL', coin_name: 'Solana', quantity: 3.8, avg_cost_usd: 164.8 },
-  { coin_id: 'cardano', coin_symbol: 'ADA', coin_name: 'Cardano', quantity: 850, avg_cost_usd: 1.92 },
-  { coin_id: 'chainlink', coin_symbol: 'LINK', coin_name: 'Chainlink', quantity: 28, avg_cost_usd: 16.4 },
+  { coin_id: 'ethereum', coin_symbol: 'ETH', coin_name: 'Ethereum', quantity: 5.5, avg_cost_usd: 3842.5 },
+  { coin_id: 'bitcoin', coin_symbol: 'BTC', coin_name: 'Bitcoin', quantity: 0.095, avg_cost_usd: 61200 },
+  { coin_id: 'solana', coin_symbol: 'SOL', coin_name: 'Solana', quantity: 40, avg_cost_usd: 164.8 },
+  { coin_id: 'cardano', coin_symbol: 'ADA', coin_name: 'Cardano', quantity: 8990, avg_cost_usd: 1.92 },
+  { coin_id: 'chainlink', coin_symbol: 'LINK', coin_name: 'Chainlink', quantity: 296, avg_cost_usd: 16.4 },
 ];
 
 function holdingsValueAtRef() {
@@ -38,12 +38,12 @@ function daysAgo(days) {
 
 function buildTransactionHistory(userId, portfolioId) {
   const txns = [
-    { days: 88, type: 'deposit', amount: 6500, currency: 'USD', totalUsd: 6500, description: 'Initial account funding' },
+    { days: 88, type: 'deposit', amount: 68000, currency: 'USD', totalUsd: 68000, description: 'Initial account funding' },
     { days: 85, type: 'buy', amount: 0.12, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 3620, totalUsd: 434.4, description: 'Bought Ethereum' },
     { days: 82, type: 'buy', amount: 0.004, currency: 'BTC', coinId: 'bitcoin', assetSymbol: 'BTC', assetName: 'Bitcoin', priceUsd: 59800, totalUsd: 239.2, description: 'Bought Bitcoin' },
     { days: 79, type: 'buy', amount: 2.5, currency: 'SOL', coinId: 'solana', assetSymbol: 'SOL', assetName: 'Solana', priceUsd: 148, totalUsd: 370, description: 'Bought Solana' },
     { days: 76, type: 'buy', amount: 400, currency: 'ADA', coinId: 'cardano', assetSymbol: 'ADA', assetName: 'Cardano', priceUsd: 1.72, totalUsd: 688, description: 'Bought Cardano' },
-    { days: 72, type: 'deposit', amount: 500, currency: 'USD', totalUsd: 500, description: 'Bank transfer deposit' },
+    { days: 72, type: 'deposit', amount: 5000, currency: 'USD', totalUsd: 5000, description: 'Bank transfer deposit' },
     { days: 70, type: 'buy', amount: 0.08, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 3750, totalUsd: 300, description: 'Bought Ethereum' },
     { days: 67, type: 'buy', amount: 15, currency: 'LINK', coinId: 'chainlink', assetSymbol: 'LINK', assetName: 'Chainlink', priceUsd: 15.2, totalUsd: 228, description: 'Bought Chainlink' },
     { days: 64, type: 'sell', amount: 0.002, currency: 'BTC', coinId: 'bitcoin', assetSymbol: 'BTC', assetName: 'Bitcoin', priceUsd: 62100, totalUsd: 124.2, description: 'Sold Bitcoin (partial take profit)' },
@@ -56,13 +56,13 @@ function buildTransactionHistory(userId, portfolioId) {
     { days: 43, type: 'sell', amount: 0.5, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 4010, totalUsd: 2005, description: 'Sold Ethereum (rebalance)' },
     { days: 40, type: 'buy', amount: 0.22, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 3950, totalUsd: 869, description: 'Bought Ethereum' },
     { days: 37, type: 'buy', amount: 250, currency: 'ADA', coinId: 'cardano', assetSymbol: 'ADA', assetName: 'Cardano', priceUsd: 1.98, totalUsd: 495, description: 'Bought Cardano' },
-    { days: 34, type: 'withdrawal', amount: 200, currency: 'USD', totalUsd: 200, description: 'Withdrawal to bank (demo)' },
+    { days: 34, type: 'withdrawal', amount: 2000, currency: 'USD', totalUsd: 2000, description: 'Withdrawal to bank (demo)' },
     { days: 31, type: 'buy', amount: 0.002, currency: 'BTC', coinId: 'bitcoin', assetSymbol: 'BTC', assetName: 'Bitcoin', priceUsd: 64800, totalUsd: 129.6, description: 'Bought Bitcoin' },
     { days: 28, type: 'buy', amount: 1.0, currency: 'SOL', coinId: 'solana', assetSymbol: 'SOL', assetName: 'Solana', priceUsd: 168, totalUsd: 168, description: 'Bought Solana' },
     { days: 25, type: 'buy', amount: 5, currency: 'LINK', coinId: 'chainlink', assetSymbol: 'LINK', assetName: 'Chainlink', priceUsd: 17.1, totalUsd: 85.5, description: 'Bought Chainlink' },
     { days: 22, type: 'sell', amount: 150, currency: 'ADA', coinId: 'cardano', assetSymbol: 'ADA', assetName: 'Cardano', priceUsd: 2.05, totalUsd: 307.5, description: 'Sold Cardano (partial)' },
     { days: 19, type: 'buy', amount: 0.1, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 4080, totalUsd: 408, description: 'Bought Ethereum' },
-    { days: 16, type: 'deposit', amount: 300, currency: 'USD', totalUsd: 300, description: 'Mobile money deposit' },
+    { days: 16, type: 'deposit', amount: 3000, currency: 'USD', totalUsd: 3000, description: 'Mobile money deposit' },
     { days: 14, type: 'buy', amount: 0.004, currency: 'BTC', coinId: 'bitcoin', assetSymbol: 'BTC', assetName: 'Bitcoin', priceUsd: 65200, totalUsd: 260.8, description: 'Bought Bitcoin' },
     { days: 12, type: 'buy', amount: 0.08, currency: 'ETH', coinId: 'ethereum', assetSymbol: 'ETH', assetName: 'Ethereum', priceUsd: 4110, totalUsd: 328.8, description: 'Bought Ethereum' },
     { days: 10, type: 'buy', amount: 120, currency: 'ADA', coinId: 'cardano', assetSymbol: 'ADA', assetName: 'Cardano', priceUsd: 2.12, totalUsd: 254.4, description: 'Bought Cardano' },

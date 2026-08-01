@@ -7,11 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=14" />
+  <link rel="stylesheet" href="/css/style.css?v=19" />
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
   <div class="app">
+    <div class="site-chrome" id="siteChrome">
     <header class="header">
       <div class="header-left">
         <a href="/" class="logo" data-view-link="overview">
@@ -47,10 +48,17 @@
       </div>
     </header>
 
+    <div id="welcomeBanner" class="welcome-banner hidden" role="status">
+      <div class="welcome-banner-inner">
+        <p class="welcome-banner-text">Welcome back, <strong id="welcomeName">Rendolf</strong></p>
+      </div>
+    </div>
+
     <div id="verifyBanner" class="verify-banner hidden">
       <span>Please verify your email to secure your account.</span>
       <button id="resendVerifyBtn" type="button" class="btn btn-ghost btn-sm">Resend email</button>
       <span id="verifyBannerMsg" class="verify-banner-msg"></span>
+    </div>
     </div>
 
     <div id="authToast" class="auth-toast hidden"></div>
@@ -324,6 +332,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=14"></script>
+  <script type="module" src="/js/app.js?v=19"></script>
 </body>
 </html>

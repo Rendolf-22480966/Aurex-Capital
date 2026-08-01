@@ -2,6 +2,7 @@ import { api, getToken, setToken } from './api.js';
 import { formatUsd, formatPct, formatNumber, pctClass } from './format.js';
 import { initDashboard, onViewActivated, openCoin, dashboardState } from './dashboard.js';
 import { initWatchlist, syncWatchlistOnLogin, clearWatchlistCache } from './watchlist.js';
+import { showWelcomeBanner, hideWelcomeBanner, dismissWelcomeIfVisible } from './welcome.js';
 import {
   initUserDashboard,
   loadUserDashboard,
@@ -45,6 +46,11 @@ function renderLedgerRow(entry) {
     <td>${total}</td>
     <td>${entry.status}</td>
   </tr>`;
+}
+
+function enterAppAfterAuth() {
+  showView('dashboard');
+  showWelcomeBanner(state.user);
 }
 
 function displayName(user) {
@@ -250,6 +256,7 @@ function bindEvents() {
   $('#loginBtn')?.addEventListener('click', () => openAuth('login'));
   $('#logoutBtn')?.addEventListener('click', async () => {
     try { await api.logout(); } catch { /* ignore */ }
+    hideWelcomeBanner();
     setToken(null);
     clearWatchlistCache();
     state.user = null;
@@ -291,7 +298,7 @@ function bindEvents() {
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
-        showView('dashboard');
+        enterAppAfterAuth();
       } else if (mode === 'register') {
         const result = await api.register({
           firstName: $('#authFirstName').value.trim(),
@@ -305,9 +312,9 @@ function bindEvents() {
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
-        showView('dashboard');
         showToast('Account created — check your email to verify');
         showDevPreview(result.devPreviewUrl, 'Verification link');
+        enterAppAfterAuth();
       } else if (mode === 'forgot') {
         const result = await api.forgotPassword($('#authEmail').value.trim());
         $('#authSuccess').textContent = result.message;
@@ -367,6 +374,30 @@ async function handleAuthUrlParams() {
   }
 }
 
+function initScrollChrome() {
+  let ticking = false;
+
+  const update = () => {
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.classList.toggle('is-scrolled', y > 1);
+    document.body.classList.toggle('is-scrolled-tight', y > 12);
+    document.body.classList.toggle('is-scrolled-compact', y > 40);
+    if (y > 16) dismissWelcomeIfVisible();
+    ticking = false;
+  };
+
+  const onScroll = () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  document.addEventListener('scroll', onScroll, { passive: true });
+  update();
+}
+
 async function init() {
   dashboardState.tradeSide = 'buy';
   initDashboard({
@@ -390,6 +421,7 @@ async function init() {
   });
   bindEvents();
   updateTradeUI();
+  initScrollChrome();
   await initAuth();
   await handleAuthUrlParams();
 
