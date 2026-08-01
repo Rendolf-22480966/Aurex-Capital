@@ -30,7 +30,7 @@ function buildHeaders() {
 }
 
 function cacheKey(path, params) {
-  return `${path}?${JSON.stringify(params)}`;
+  return `${path}?v2-${JSON.stringify(params)}`;
 }
 
 function getCached(key) {
@@ -133,8 +133,8 @@ async function getMarkets({ page = 1, perPage = 50, order = 'market_cap_desc', i
     order,
     per_page: Math.min(perPage, 250),
     page,
-    sparkline: false,
-    price_change_percentage: '24h',
+    sparkline: 'true',
+    price_change_percentage: '24h,7d',
   };
   if (ids?.length) {
     params.ids = ids.join(',');

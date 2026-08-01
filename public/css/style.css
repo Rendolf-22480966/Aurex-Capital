@@ -355,6 +355,27 @@ body {
   background: rgba(139, 197, 63, 0.08);
 }
 
+.sparkline-cell {
+  width: 148px;
+  min-width: 148px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.sparkline {
+  display: block;
+}
+
+.sparkline-empty {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.market-table th:nth-child(5),
+.market-table td.sparkline-cell {
+  text-align: center;
+}
+
 .coin-cell {
   display: flex;
   align-items: center;
