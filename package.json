@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "build": "npm rebuild better-sqlite3 --build-from-source || npm install",
-    "postinstall": "npm rebuild better-sqlite3 --build-from-source || true",
+    "build": "npm install",
     "tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3000",
     "tunnel:lt": "npx --yes localtunnel --port 3000"
   },
@@ -23,7 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.7.0",
+    "sql.js": "^1.12.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

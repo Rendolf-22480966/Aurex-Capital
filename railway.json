@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm ci && npm rebuild better-sqlite3 --build-from-source || true"
+    "buildCommand": "npm ci"
   },
   "deploy": {
     "startCommand": "npm start",
