@@ -2,6 +2,8 @@ import { api } from './api.js';
 import { formatUsd, formatPct, formatNumber, formatSupply, pctClass, formatTime, stripHtml } from './format.js';
 import { getWatchlist, isWatchlisted, toggleWatchlist } from './watchlist.js';
 import { renderSparkline, get7dChange, getSparklinePrices } from './sparkline.js';
+import { setLiveStatus } from './components/LiveStatus.js';
+import { loadGlobalMarketChart } from './components/GlobalMarketChart.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -34,9 +36,38 @@ export function initDashboard(callbacks = {}) {
   bindDashboardEvents();
 }
 
+function renderWatchlistEmpty(isLoggedIn) {
+  const tbody = $('#watchlistTableBody');
+  const panel = $('#watchlistEmpty');
+  const content = $('#watchlistContent');
+  content?.classList.add('hidden');
+  if (panel) {
+    panel.classList.remove('hidden');
+    panel.innerHTML = `
+      <div class="watchlist-empty-card panel">
+        <h2>Your watchlist is empty</h2>
+        <p>${
+          isLoggedIn
+            ? 'Star coins on the Markets page or any coin detail page to track them here.'
+            : 'Tap the ☆ icon on any coin to build a watchlist. Sign in to sync across devices.'
+        }</p>
+        <button type="button" class="btn btn-primary" id="watchlistBrowseBtn">Browse Markets</button>
+        ${isLoggedIn ? '' : '<button type="button" class="btn btn-ghost" id="watchlistSignInBtn">Sign In to Sync</button>'}
+      </div>`;
+    $('#watchlistBrowseBtn')?.addEventListener('click', () => state.callbacks.onNavigate?.('markets'));
+    $('#watchlistSignInBtn')?.addEventListener('click', () => state.callbacks.onSignIn?.());
+  }
+  if (tbody) tbody.innerHTML = '';
+  const countEl = $('#watchlistCount');
+  if (countEl) countEl.textContent = '0 coins';
+}
+
 export function onViewActivated(view) {
   clearRefreshTimers();
-  if (view === 'overview') loadOverview();
+  if (view === 'overview') {
+    loadOverview();
+    loadGlobalMarketChart(7);
+  }
   if (view === 'markets') loadMarkets();
   if (view === 'trending') loadTrending();
   if (view === 'gainers') loadGainers();
@@ -47,8 +78,7 @@ export function onViewActivated(view) {
 
 export function openCoin(coinId) {
   state.selectedCoinId = coinId;
-  state.callbacks.onNavigate?.('coin');
-  loadCoinDetail(coinId);
+  state.callbacks.onNavigate?.('coin', { coinId });
 }
 
 function clearRefreshTimers() {
@@ -80,13 +110,20 @@ function skeletonRows(cols, rows = 8) {
   ).join('');
 }
 
+function get1hChange(c) {
+  return c.price_change_percentage_1h_in_currency?.usd ?? c.price_change_percentage_1h ?? null;
+}
+
 function coinRow(c, opts = {}) {
   const starred = isWatchlisted(c.id) ? '★' : '☆';
   const change7d = get7dChange(c);
+  const change1h = get1hChange(c);
   const sparkPrices = getSparklinePrices(c);
+  const rank = opts.rank ?? c.market_cap_rank ?? '—';
   return `
     <tr data-coin-id="${c.id}" class="coin-row">
-      <td>${c.market_cap_rank ?? '—'}</td>
+      <td class="col-star"><button type="button" class="btn-icon watch-btn" data-watch="${c.id}" title="Watchlist" aria-label="Toggle watchlist">${starred}</button></td>
+      <td class="rank-cell">${rank}</td>
       <td>
         <div class="coin-cell">
           <img src="${c.image}" alt="" loading="lazy" width="28" height="28" />
@@ -96,19 +133,48 @@ function coinRow(c, opts = {}) {
           </div>
         </div>
       </td>
-      <td>${formatUsd(c.current_price)}</td>
-      <td class="${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</td>
-      <td class="${pctClass(change7d)}">${formatPct(change7d)}</td>
+      <td class="col-num">${formatUsd(c.current_price)}</td>
+      <td class="col-num ${pctClass(change1h)}">${formatPct(change1h)}</td>
+      <td class="col-num ${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</td>
+      <td class="col-num ${pctClass(change7d)}">${formatPct(change7d)}</td>
       <td class="sparkline-cell">${renderSparkline(sparkPrices, change7d)}</td>
-      <td>${formatUsd(c.market_cap, true)}</td>
-      <td>${formatUsd(c.total_volume, true)}</td>
+      <td class="col-num">${formatUsd(c.market_cap, true)}</td>
+      <td class="col-num">${formatUsd(c.total_volume, true)}</td>
       ${opts.full ? `
-        <td>${formatUsd(c.high_24h)}</td>
-        <td>${formatUsd(c.low_24h)}</td>
-        <td>${formatSupply(c.circulating_supply)}</td>` : ''}
-      <td class="row-actions">
-        <button class="btn-icon watch-btn" data-watch="${c.id}" title="Watchlist">${starred}</button>
+        <td class="col-num">${formatUsd(c.high_24h)}</td>
+        <td class="col-num">${formatUsd(c.low_24h)}</td>
+        <td class="col-num">${formatSupply(c.circulating_supply)}</td>` : ''}
+      <td class="row-actions col-actions">
         ${opts.trade ? `<button class="trade-btn" data-open="${c.id}">Trade</button>` : ''}
+      </td>
+    </tr>`;
+}
+
+function moversCoinRow(c, rank) {
+  const starred = isWatchlisted(c.id) ? '★' : '☆';
+  const change7d = get7dChange(c);
+  const sparkPrices = getSparklinePrices(c);
+  return `
+    <tr data-coin-id="${c.id}" class="coin-row">
+      <td class="rank-cell">${rank ?? c.market_cap_rank ?? '—'}</td>
+      <td>
+        <div class="coin-cell">
+          <img src="${c.image}" alt="" loading="lazy" width="28" height="28" />
+          <div>
+            <div class="coin-name">${c.name}</div>
+            <div class="coin-symbol">${String(c.symbol).toUpperCase()}</div>
+          </div>
+        </div>
+      </td>
+      <td class="col-num">${formatUsd(c.current_price)}</td>
+      <td class="col-num ${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</td>
+      <td class="col-num ${pctClass(change7d)}">${formatPct(change7d)}</td>
+      <td class="sparkline-cell">${renderSparkline(sparkPrices, change7d)}</td>
+      <td class="col-num">${formatUsd(c.market_cap, true)}</td>
+      <td class="col-num">${formatUsd(c.total_volume, true)}</td>
+      <td class="row-actions col-actions">
+        <button class="btn-icon watch-btn" data-watch="${c.id}" title="Watchlist">${starred}</button>
+        <button class="trade-btn" data-open="${c.id}">Trade</button>
       </td>
     </tr>`;
 }
@@ -129,10 +195,32 @@ function compactCoinRow(c, extraActions = '') {
     </tr>`;
 }
 
+async function loadOverviewNews() {
+  const el = $('#overviewNews');
+  if (!el) return;
+  try {
+    const data = await api.getNews(1, 4);
+    if (!data.configured || !data.articles?.length) {
+      el.innerHTML = `<div class="empty-state panel">News feed needs a server restart. In terminal run: <code>npm start</code> then hard refresh (Ctrl+Shift+R).</div>`;
+      return;
+    }
+    el.innerHTML = data.articles.slice(0, 4).map((a) => `
+      <article class="news-card">
+        ${a.image_url ? `<img class="news-card-image" src="${a.image_url}" alt="" loading="lazy" />` : '<div class="news-card-image news-card-image-fallback"></div>'}
+        <div class="news-card-body">
+          <p class="news-card-source">${a.source || 'News'}</p>
+          <h3 class="news-card-title">${a.url ? `<a href="${a.url}" target="_blank" rel="noopener">${a.title}</a>` : a.title}</h3>
+        </div>
+      </article>`).join('');
+  } catch {
+    el.innerHTML = '<div class="empty-state">News unavailable</div>';
+  }
+}
+
 async function loadOverview() {
   const statsEl = $('#globalStats');
   const trendEl = $('#overviewTrending');
-  if (statsEl) statsEl.innerHTML = '<div class="skeleton card-skeleton"></div>'.repeat(4);
+  if (statsEl) statsEl.innerHTML = '<div class="skeleton card-skeleton"></div>'.repeat(6);
   if (trendEl) trendEl.innerHTML = '<div class="skeleton card-skeleton"></div>'.repeat(5);
 
   try {
@@ -164,6 +252,7 @@ async function loadOverview() {
 
     state.lastMeta.overview = data.meta?.global;
     setMeta('#overviewMeta', data.meta?.global);
+    setLiveStatus(data.meta?.global);
 
     const g = data.global;
     const mcap = g.total_market_cap?.usd;
@@ -172,75 +261,153 @@ async function loadOverview() {
     const ethDom = g.market_cap_percentage?.eth;
     const mcapChg = g.market_cap_change_percentage_24h_usd;
 
-    $('#globalStats').innerHTML = `
-      <div class="stat-card"><div class="stat-label">Total Market Cap</div><div class="stat-value">${formatUsd(mcap, true)}</div><div class="${pctClass(mcapChg)}">${formatPct(mcapChg)} 24h</div></div>
-      <div class="stat-card"><div class="stat-label">24h Volume</div><div class="stat-value">${formatUsd(vol, true)}</div></div>
-      <div class="stat-card"><div class="stat-label">BTC Dominance</div><div class="stat-value">${btcDom?.toFixed(2) ?? '—'}%</div>${ethDom != null ? `<div class="stat-sub">ETH ${ethDom.toFixed(2)}%</div>` : ''}</div>
-      <div class="stat-card"><div class="stat-label">Active Cryptos</div><div class="stat-value">${formatNumber(g.active_cryptocurrencies, 0)}</div><div class="stat-sub">${formatNumber(g.markets, 0)} markets</div></div>`;
+    const metaEl = $('#overviewMeta');
+    if (metaEl && mcap != null) {
+      metaEl.textContent = `The global crypto market cap is ${formatUsd(mcap, true)}${mcapChg != null ? `, a ${mcapChg >= 0 ? '' : ''}${Math.abs(mcapChg).toFixed(2)}% ${mcapChg >= 0 ? 'increase' : 'decrease'} over the last day` : ''}.`;
+    }
 
-    renderTrendingCards('#overviewTrending', data.trending?.coins || []);
-    renderMiniMovers('#overviewGainers', data.gainers || [], 'gainers');
-    renderMiniMovers('#overviewLosers', data.losers || [], 'losers');
+    let sparkHtml = '';
+    try {
+      const { points } = await api.getGlobalChart(7);
+      const values = (points || []).map((p) => p[1]).filter(Number.isFinite);
+      if (values.length > 1) {
+        sparkHtml = renderSparkline(values, mcapChg);
+      }
+    } catch {
+      /* optional */
+    }
+
+    $('#globalStats').innerHTML = `
+      <div class="cg-stat-block">
+        <div class="cg-stat-label">Market Cap</div>
+        <div class="cg-stat-row">
+          <div class="cg-stat-copy">
+            <div class="cg-stat-value">${formatUsd(mcap, true)}</div>
+            <div class="cg-stat-change ${pctClass(mcapChg)}">${formatPct(mcapChg)} <span>24h</span></div>
+          </div>
+          ${sparkHtml ? `<div class="cg-stat-spark">${sparkHtml}</div>` : ''}
+        </div>
+      </div>
+      <div class="cg-stat-block">
+        <div class="cg-stat-label">24h Trading Volume</div>
+        <div class="cg-stat-row">
+          <div class="cg-stat-copy">
+            <div class="cg-stat-value">${formatUsd(vol, true)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="cg-stat-mini-grid">
+        <div class="cg-stat-mini"><span>BTC Dominance</span><strong>${btcDom != null ? `${btcDom.toFixed(1)}%` : '—'}</strong></div>
+        <div class="cg-stat-mini"><span>ETH Dominance</span><strong>${ethDom != null ? `${ethDom.toFixed(1)}%` : '—'}</strong></div>
+        <div class="cg-stat-mini"><span>Coins</span><strong>${formatNumber(g.active_cryptocurrencies, 0)}</strong></div>
+        <div class="cg-stat-mini"><span>Exchanges</span><strong>${formatNumber(g.markets, 0)}</strong></div>
+      </div>`;
+
+    renderCgCoinList('#overviewTrending', data.trending?.coins || [], { type: 'trending' });
+    renderMiniMovers('#overviewGainers', data.gainers || []);
+    renderMiniMovers('#overviewLosers', data.losers || []);
+    loadOverviewNews();
     scheduleRefresh('overview', loadOverview, REFRESH.overview);
   } catch (err) {
     setMeta('#overviewMeta', null, err.message);
+    setLiveStatus({}, err.message);
     if (statsEl) statsEl.innerHTML = `<div class="error-state">${err.message}</div>`;
   }
 }
 
-function renderTrendingCards(selector, coins) {
+function renderTrendingCards(selector, coins, marketMap = {}, limit) {
   const el = $(selector);
   if (!el) return;
-  if (!coins.length) {
+  const list = limit ? coins.slice(0, limit) : coins;
+  if (!list.length) {
     el.innerHTML = '<div class="empty-state">No trending data</div>';
     return;
   }
-  el.innerHTML = coins.slice(0, 7).map((item) => {
+  el.innerHTML = list.map((item, index) => {
     const c = item.item || item;
-    const price = c.data?.price;
-    const chg = c.data?.price_change_percentage_24h?.usd ?? c.data?.price_change_percentage_24h?.['24h'];
+    const market = marketMap[c.id];
+    const price = market?.current_price ?? c.data?.price;
+    const chg =
+      market?.price_change_percentage_24h ??
+      c.data?.price_change_percentage_24h?.usd ??
+      c.data?.price_change_percentage_24h?.['24h'];
+    const change7d = market ? get7dChange(market) : null;
+    const sparkPrices = market ? getSparklinePrices(market) : null;
+    const score = c.score != null ? Number(c.score).toFixed(1) : null;
     return `
       <button class="trend-card" data-coin-id="${c.id}">
-        <img src="${c.thumb || c.small || c.image}" alt="" width="32" height="32" />
+        <span class="trend-rank">${index + 1}</span>
+        <img src="${c.thumb || c.small || c.image || market?.image}" alt="" width="36" height="36" loading="lazy" />
         <div class="trend-info">
-          <div class="coin-name">${c.name}</div>
-          <div class="coin-symbol">${String(c.symbol).toUpperCase()} · #${c.market_cap_rank ?? '—'}</div>
-          <div>${price != null ? formatUsd(price) : '—'} <span class="${pctClass(chg)}">${formatPct(chg)}</span></div>
+          <div class="trend-name-row">
+            <span class="coin-name">${c.name}</span>
+            ${score ? `<span class="trend-score" title="Trending score">${score}</span>` : ''}
+          </div>
+          <div class="coin-symbol">${String(c.symbol).toUpperCase()} · #${c.market_cap_rank ?? market?.market_cap_rank ?? '—'}</div>
+          <div class="trend-price-row">
+            <span class="trend-price">${price != null ? formatUsd(price) : '—'}</span>
+            <span class="${pctClass(chg)}">${formatPct(chg)}</span>
+          </div>
         </div>
+        ${sparkPrices?.length ? `<div class="trend-spark">${renderSparkline(sparkPrices, change7d ?? chg)}</div>` : ''}
       </button>`;
   }).join('');
 }
 
-function renderMiniMovers(selector, coins, type) {
+function renderCgCoinList(selector, items, { type = 'trending' } = {}) {
   const el = $(selector);
   if (!el) return;
-  el.innerHTML = coins.slice(0, 5).map((c) => `
-    <button class="mover-row" data-coin-id="${c.id}">
-      <img src="${c.image}" alt="" width="24" height="24" />
-      <span class="coin-name">${c.name}</span>
-      <span class="${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</span>
-      <span>${formatUsd(c.current_price)}</span>
-    </button>`).join('');
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state">No data</div>';
+    return;
+  }
+  el.innerHTML = items.slice(0, 5).map((item, index) => {
+    const c = item.item || item;
+    const price = c.current_price ?? c.data?.price;
+    const chg =
+      c.price_change_percentage_24h ??
+      c.data?.price_change_percentage_24h?.usd ??
+      c.data?.price_change_percentage_24h?.['24h'];
+    const img = c.thumb || c.small || c.image;
+    return `
+      <button type="button" class="cg-coin-list-item" data-coin-id="${c.id}">
+        <span class="cg-list-rank">${type === 'trending' ? index + 1 : ''}</span>
+        <img src="${img}" alt="" width="24" height="24" loading="lazy" />
+        <span class="cg-list-name">${c.name}</span>
+        <span class="cg-list-price">${price != null ? formatUsd(price) : '—'}</span>
+        <span class="cg-list-change ${pctClass(chg)}">${formatPct(chg)}</span>
+      </button>`;
+  }).join('');
+}
+
+function renderMiniMovers(selector, coins) {
+  renderCgCoinList(selector, coins, { type: 'movers' });
 }
 
 async function loadMarkets() {
   const tbody = $('#marketsTableBody');
-  if (tbody) tbody.innerHTML = skeletonRows(12);
+  if (tbody) tbody.innerHTML = skeletonRows(14);
 
   try {
     const { coins, meta } = await api.getMarkets(state.marketsPage, state.marketsPerPage, state.marketsSort);
     state.lastMeta.markets = meta;
     setMeta('#marketsMeta', meta);
     if (tbody) {
-      if (!coins.length) tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No coins found</td></tr>';
+      if (!coins.length) tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No coins found</td></tr>';
       else tbody.innerHTML = coins.map((c) => coinRow(c, { full: true, trade: true })).join('');
     }
     const pageInfo = $('#marketsPageInfo');
-    if (pageInfo) pageInfo.textContent = `Page ${state.marketsPage} · ${coins.length} coins`;
+    if (pageInfo) {
+      pageInfo.textContent = `Page ${state.marketsPage} · ${coins.length} of ${state.marketsPerPage} per page`;
+    }
+    const nextBtn = $('#marketsNext');
+    if (nextBtn) nextBtn.disabled = coins.length < state.marketsPerPage;
+    const prevBtn = $('#marketsPrev');
+    if (prevBtn) prevBtn.disabled = state.marketsPage <= 1;
     scheduleRefresh('markets', loadMarkets, REFRESH.markets);
   } catch (err) {
     setMeta('#marketsMeta', null, err.message);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="error-state">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="14" class="error-state">${err.message}</td></tr>`;
   }
 }
 
@@ -250,7 +417,20 @@ async function loadTrending() {
   try {
     const { trending, meta } = await api.getTrending();
     setMeta('#trendingMeta', meta);
-    renderTrendingCards('#trendingGrid', trending?.coins || []);
+    const items = trending?.coins || [];
+    let marketMap = {};
+    if (items.length) {
+      const ids = items.map((item) => (item.item || item).id).filter(Boolean);
+      try {
+        const { coins } = await api.getMarketsByIds(ids);
+        marketMap = Object.fromEntries(coins.map((c) => [c.id, c]));
+      } catch (_) {
+        /* sparklines optional */
+      }
+    }
+    renderTrendingCards('#trendingGrid', items, marketMap);
+    const countEl = $('#trendingCount');
+    if (countEl) countEl.textContent = `${items.length} trending`;
     scheduleRefresh('trending', loadTrending, REFRESH.trending);
   } catch (err) {
     setMeta('#trendingMeta', null, err.message);
@@ -259,24 +439,30 @@ async function loadTrending() {
 }
 
 async function loadGainers() {
-  await loadMoversTable('gainers', '#gainersTableBody', '#gainersMeta', () => api.getGainers(30));
+  await loadMoversTable('gainers', '#gainersTableBody', '#gainersMeta', () => api.getGainers(30), '#gainersCount');
 }
 
 async function loadLosers() {
-  await loadMoversTable('losers', '#losersTableBody', '#losersMeta', () => api.getLosers(30));
+  await loadMoversTable('losers', '#losersTableBody', '#losersMeta', () => api.getLosers(30), '#losersCount');
 }
 
-async function loadMoversTable(key, tbodySel, metaSel, fetcher) {
+async function loadMoversTable(key, tbodySel, metaSel, fetcher, countSel) {
   const tbody = $(tbodySel);
-  if (tbody) tbody.innerHTML = skeletonRows(8);
+  if (tbody) tbody.innerHTML = skeletonRows(9);
   try {
     const { coins, meta } = await fetcher();
     setMeta(metaSel, meta);
-    if (tbody) tbody.innerHTML = coins.map((c) => compactCoinRow(c)).join('');
+    if (tbody) {
+      tbody.innerHTML = coins.length
+        ? coins.map((c, i) => moversCoinRow(c, i + 1)).join('')
+        : '<tr><td colspan="9" class="empty-state">No data available</td></tr>';
+    }
+    const countEl = $(countSel);
+    if (countEl) countEl.textContent = `${coins.length} coins`;
     scheduleRefresh(key, key === 'gainers' ? loadGainers : loadLosers, REFRESH[key]);
   } catch (err) {
     setMeta(metaSel, null, err.message);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="error-state">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="error-state">${err.message}</td></tr>`;
   }
 }
 
@@ -284,25 +470,34 @@ async function loadWatchlist() {
   const ids = getWatchlist();
   const tbody = $('#watchlistTableBody');
   const metaEl = '#watchlistMeta';
+  const isLoggedIn = Boolean(state.callbacks.getUser?.());
+  const emptyPanel = $('#watchlistEmpty');
+
   if (!ids.length) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Add coins from Markets or coin pages</td></tr>';
+    renderWatchlistEmpty(isLoggedIn);
     setMeta(metaEl, {});
     return;
   }
-  if (tbody) tbody.innerHTML = skeletonRows(8);
+
+  emptyPanel?.classList.add('hidden');
+  $('#watchlistContent')?.classList.remove('hidden');
+  if (tbody) tbody.innerHTML = skeletonRows(9);
+  const countEl = $('#watchlistCount');
+  if (countEl) countEl.textContent = `${ids.length} coin${ids.length === 1 ? '' : 's'}`;
+
   try {
     const { coins, meta } = await api.getMarketsByIds(ids);
     setMeta(metaEl, meta);
     const ordered = ids.map((id) => coins.find((c) => c.id === id)).filter(Boolean);
     if (tbody) {
       tbody.innerHTML = ordered.length
-        ? ordered.map((c) => compactCoinRow(c, `<td><button class="btn-icon watch-btn active" data-watch="${c.id}">★</button></td>`)).join('')
-        : '<tr><td colspan="8" class="empty-state">Could not load watchlist coins</td></tr>';
+        ? ordered.map((c) => moversCoinRow(c, c.market_cap_rank)).join('')
+        : '<tr><td colspan="9" class="empty-state">Could not load watchlist coins</td></tr>';
     }
     scheduleRefresh('watchlist', loadWatchlist, REFRESH.watchlist);
   } catch (err) {
     setMeta(metaEl, null, err.message);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="error-state">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="error-state">${err.message}</td></tr>`;
   }
 }
 
@@ -387,12 +582,12 @@ function renderChart(chartData) {
   container.innerHTML = '';
 
   state.chart = LightweightCharts.createChart(container, {
-    layout: { background: { color: '#1a2332' }, textColor: '#8b949e' },
-    grid: { vertLines: { color: '#2d3748' }, horzLines: { color: '#2d3748' } },
+    layout: { background: { color: 'transparent' }, textColor: '#64748b' },
+    grid: { vertLines: { color: '#e2e8f0' }, horzLines: { color: '#e2e8f0' } },
     width: container.clientWidth,
     height: 320,
-    timeScale: { borderColor: '#2d3748' },
-    rightPriceScale: { borderColor: '#2d3748' },
+    timeScale: { borderColor: '#e2e8f0' },
+    rightPriceScale: { borderColor: '#e2e8f0' },
   });
 
   state.priceSeries = state.chart.addAreaSeries({
@@ -493,6 +688,12 @@ function bindDashboardEvents() {
 
   $('#marketsSort')?.addEventListener('change', (e) => {
     state.marketsSort = e.target.value;
+    state.marketsPage = 1;
+    loadMarkets();
+  });
+
+  $('#marketsPerPage')?.addEventListener('change', (e) => {
+    state.marketsPerPage = Number(e.target.value) || 50;
     state.marketsPage = 1;
     loadMarkets();
   });

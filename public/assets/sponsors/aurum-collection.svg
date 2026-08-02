@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" role="img" aria-label="Aurum Collection">
+  <rect width="280" height="90" rx="8" fill="#292524"/>
+  <circle cx="44" cy="45" r="22" fill="none" stroke="#d4af37" stroke-width="2"/>
+  <text x="44" y="50" text-anchor="middle" fill="#d4af37" font-family="Georgia, serif" font-size="14">A</text>
+  <text x="78" y="40" fill="#fafaf9" font-family="Georgia, serif" font-size="14">Aurum Collection</text>
+  <text x="78" y="58" fill="#a8a29e" font-family="Arial, sans-serif" font-size="9" letter-spacing="2">LUXURY WATCHES</text>
+</svg>

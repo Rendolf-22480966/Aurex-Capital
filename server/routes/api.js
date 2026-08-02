@@ -12,11 +12,17 @@ const {
 } = require('../auth/middleware');
 const emailService = require('../auth/emailService');
 const userDashboardService = require('../services/userDashboard');
+const newsService = require('../services/news');
+const advertisingService = require('../services/advertising');
 const { authLimiter, marketLimiter, apiLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
 router.use(apiLimiter);
+
+function setPublicCache(res, maxAge = 30) {
+  res.set('Cache-Control', `private, max-age=${maxAge}, stale-while-revalidate=120`);
+}
 
 const ORDER_MAP = {
   market_cap: 'market_cap_desc',
@@ -152,6 +158,11 @@ router.get('/health', (req, res) => {
       'audit_logs',
       'email_verification',
       'password_reset',
+      'news_architecture',
+      'live_news_rss',
+      'advertising_architecture',
+      'curated_ads',
+      'performance_caching',
     ],
   });
 });
@@ -159,6 +170,7 @@ router.get('/health', (req, res) => {
 router.get('/market/dashboard', marketLimiter, async (req, res) => {
   try {
     const bundle = await coingecko.getDashboardBundle();
+    setPublicCache(res, 30);
     res.json(bundle);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -168,6 +180,18 @@ router.get('/market/dashboard', marketLimiter, async (req, res) => {
 router.get('/market/global', marketLimiter, async (req, res) => {
   try {
     const result = await coingecko.getGlobal();
+    setPublicCache(res, 30);
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+router.get('/market/global-chart', marketLimiter, async (req, res) => {
+  try {
+    const days = Number(req.query.days) || 7;
+    const result = await coingecko.getGlobalMarketChart(days);
+    setPublicCache(res, 120);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -177,6 +201,7 @@ router.get('/market/global', marketLimiter, async (req, res) => {
 router.get('/market/trending', marketLimiter, async (req, res) => {
   try {
     const result = await coingecko.getTrending();
+    setPublicCache(res, 60);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -187,6 +212,7 @@ router.get('/market/gainers', marketLimiter, async (req, res) => {
   try {
     const perPage = Math.min(Number(req.query.per_page) || 20, 50);
     const result = await coingecko.getGainers(perPage);
+    setPublicCache(res, 45);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -197,6 +223,7 @@ router.get('/market/losers', marketLimiter, async (req, res) => {
   try {
     const perPage = Math.min(Number(req.query.per_page) || 20, 50);
     const result = await coingecko.getLosers(perPage);
+    setPublicCache(res, 45);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -211,6 +238,7 @@ router.get('/market/coins', marketLimiter, async (req, res) => {
     const order = ORDER_MAP[sort] || sort;
     const ids = req.query.ids ? String(req.query.ids).split(',').filter(Boolean) : null;
     const result = await coingecko.getMarkets({ page, perPage, order, ids });
+    setPublicCache(res, 30);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -220,6 +248,7 @@ router.get('/market/coins', marketLimiter, async (req, res) => {
 router.get('/market/coin/:id', marketLimiter, async (req, res) => {
   try {
     const result = await coingecko.getCoin(req.params.id);
+    setPublicCache(res, 60);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -230,6 +259,7 @@ router.get('/market/chart/:id', marketLimiter, async (req, res) => {
   try {
     const days = req.query.days || '1';
     const result = await coingecko.getMarketChart(req.params.id, days);
+    setPublicCache(res, 120);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -241,6 +271,7 @@ router.get('/market/search', marketLimiter, async (req, res) => {
     const q = req.query.q || '';
     if (!q.trim()) return res.json({ results: { coins: [] }, meta: {} });
     const result = await coingecko.searchCoins(q);
+    setPublicCache(res, 60);
     res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -260,6 +291,35 @@ router.get('/portfolio', authMiddleware, async (req, res) => {
   try {
     const data = await userDashboardService.buildPortfolioResponse(req.user.id);
     res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+router.get('/news', marketLimiter, async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const result = await newsService.getNews({ page, limit });
+    setPublicCache(res, 120);
+    res.json(result);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+router.get('/advertising/slots', marketLimiter, async (req, res) => {
+  try {
+    const slotId = req.query.slot;
+    if (slotId) {
+      const slot = await advertisingService.getSlot(String(slotId));
+      if (!slot) return res.status(404).json({ error: 'Unknown ad slot' });
+      setPublicCache(res, 300);
+      return res.json({ configured: advertisingService.isConfigured(), slot });
+    }
+    const result = await advertisingService.getAllSlots();
+    setPublicCache(res, 300);
+    res.json(result);
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

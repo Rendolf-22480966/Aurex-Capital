@@ -2,51 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Aurex Capital — Live Crypto Markets</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=19" />
+  <link rel="stylesheet" href="/css/style.css?v=41" />
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
   <div class="app">
     <div class="site-chrome" id="siteChrome">
-    <header class="header">
-      <div class="header-left">
-        <a href="/" class="logo" data-view-link="overview">
-          <span class="logo-icon">◆</span>
-          <span>Aurex Capital</span>
-        </a>
-        <nav class="nav">
-          <button class="nav-btn active" data-view="overview">Overview</button>
-          <button class="nav-btn user-only hidden" data-view="dashboard">Dashboard</button>
-          <button class="nav-btn" data-view="markets">Markets</button>
-          <button class="nav-btn" data-view="trending">Trending</button>
-          <button class="nav-btn" data-view="gainers">Gainers</button>
-          <button class="nav-btn" data-view="losers">Losers</button>
-          <button class="nav-btn" data-view="watchlist">Watchlist</button>
-          <button class="nav-btn" data-view="trades">Activity</button>
-        </nav>
+      <header class="global-header">
+        <div class="global-header-inner">
+          <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNavOverlay">
+            <span></span><span></span><span></span>
+          </button>
+          <a href="/" class="logo" data-route="/">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">Aurex Capital</span>
+          </a>
+          <nav class="global-nav" id="globalNav" aria-label="Primary"></nav>
+          <div class="global-header-actions">
+            <div class="search-wrap">
+              <input id="globalSearch" type="search" placeholder="Search BTC, ETH, Solana…" class="search-input" autocomplete="off" />
+              <div id="searchDropdown" class="search-dropdown hidden"></div>
+            </div>
+            <div class="live-badge" id="liveStatusBadge" role="status">
+              <span class="live-dot"></span>
+              <span class="live-status-copy">
+                <span class="live-status-title">Live Market Data</span>
+                <span class="live-status-sub">Powered by CoinGecko</span>
+              </span>
+            </div>
+            <div id="userPanel" class="user-panel hidden">
+              <div class="balance-pill"><span class="label">Cash</span><span id="headerBalance">$0.00</span></div>
+              <span id="headerUsername" class="username"></span>
+              <button id="logoutBtn" class="btn btn-ghost btn-sm">Logout</button>
+            </div>
+            <button id="loginBtn" class="btn btn-primary btn-sm">Sign In</button>
+          </div>
+        </div>
+        <div id="megaMenuBackdrop" class="mega-menu-backdrop hidden" aria-hidden="true"></div>
+        <div id="megaMenuPanel" class="mega-menu hidden" role="dialog" aria-modal="false" aria-label="Section menu"></div>
+      </header>
+
+      <div id="marketTicker" class="market-ticker" aria-label="Global market statistics">
+        <div class="market-ticker-inner"><span class="ticker-item">Loading market data…</span></div>
       </div>
-      <div class="header-right">
-        <div class="search-wrap">
-          <input id="globalSearch" type="search" placeholder="Search BTC, ETH, Solana…" class="search-input" autocomplete="off" />
-          <div id="searchDropdown" class="search-dropdown hidden"></div>
+
+      <nav class="market-nav" id="marketNav" aria-label="Market workspace">
+        <div class="market-nav-inner">
+          <a href="/" class="market-nav-link active" data-route="/" data-view="overview">Overview</a>
+          <a href="/dashboard" class="market-nav-link user-only hidden" data-route="/dashboard" data-view="dashboard">Dashboard</a>
+          <a href="/markets" class="market-nav-link" data-route="/markets" data-view="markets">Markets</a>
+          <a href="/trending" class="market-nav-link" data-route="/trending" data-view="trending">Trending</a>
+          <a href="/gainers" class="market-nav-link" data-route="/gainers" data-view="gainers">Gainers</a>
+          <a href="/losers" class="market-nav-link" data-route="/losers" data-view="losers">Losers</a>
+          <a href="/watchlist" class="market-nav-link" data-route="/watchlist" data-view="watchlist">Watchlist</a>
+          <a href="/activity" class="market-nav-link" data-route="/activity" data-view="activity">Activity</a>
         </div>
-        <div class="live-badge">
-          <span class="live-dot"></span>
-          Live · CoinGecko
-        </div>
-        <div id="userPanel" class="user-panel hidden">
-          <div class="balance-pill"><span class="label">Cash</span><span id="headerBalance">$0.00</span></div>
-          <span id="headerUsername" class="username"></span>
-          <button id="logoutBtn" class="btn btn-ghost btn-sm">Logout</button>
-        </div>
-        <button id="loginBtn" class="btn btn-primary btn-sm">Sign In</button>
-      </div>
-    </header>
+      </nav>
 
     <div id="welcomeBanner" class="welcome-banner hidden" role="status">
       <div class="welcome-banner-inner">
@@ -61,29 +77,81 @@
     </div>
     </div>
 
+    <div id="mobileNavOverlay" class="mobile-nav-overlay hidden"></div>
+
     <div id="authToast" class="auth-toast hidden"></div>
 
-    <main class="main">
+    <main class="main" id="app-root">
+      <!-- PLACEHOLDER / STATIC PAGES -->
+      <section id="viewPlaceholder" class="view">
+        <div id="placeholderContent"></div>
+      </section>
+
       <!-- OVERVIEW -->
       <section id="viewOverview" class="view active">
-        <div class="section-header">
-          <h1>Global Market Overview</h1>
-          <p id="overviewMeta" class="subtitle meta-line"></p>
+        <div class="cg-page-intro">
+          <h1>Cryptocurrency Prices by Market Cap</h1>
+          <p id="overviewMeta" class="subtitle meta-line">The global crypto market cap is …</p>
         </div>
-        <div id="globalStats" class="stats-grid"></div>
+
+        <div class="cg-hero-grid">
+          <div class="cg-hero-stats panel" id="globalStats">
+            <div class="skeleton card-skeleton"></div>
+          </div>
+          <div class="cg-hero-side panel">
+            <div class="cg-panel-head">
+              <h2>Trending</h2>
+              <a href="/trending" class="cg-view-more" data-route="/trending">View more →</a>
+            </div>
+            <div id="overviewTrending" class="cg-coin-list"></div>
+          </div>
+          <div class="cg-hero-side panel">
+            <div class="cg-panel-head">
+              <h2>Top Gainers</h2>
+              <a href="/gainers" class="cg-view-more" data-route="/gainers">View more →</a>
+            </div>
+            <div id="overviewGainers" class="cg-coin-list"></div>
+          </div>
+        </div>
+
+        <div data-ad-slot="overview_leaderboard" class="ad-slot-mount"></div>
+
+        <div class="overview-chart-panel panel">
+          <div class="overview-chart-head">
+            <div>
+              <h2>Global Market Capitalization</h2>
+              <p class="overview-chart-sub">Total crypto market cap · USD</p>
+            </div>
+            <div class="chart-range-tabs">
+              <button type="button" class="global-chart-range active" data-days="7">7D</button>
+              <button type="button" class="global-chart-range" data-days="30">30D</button>
+            </div>
+          </div>
+          <div id="globalMarketChart" class="global-market-chart">
+            <div class="skeleton chart-skeleton"></div>
+          </div>
+          <p id="globalChartMeta" class="meta-line"></p>
+        </div>
+
         <div id="overviewUserDash" class="overview-user-dash hidden"></div>
+
         <div class="overview-panels">
           <div class="panel">
-            <h2>Trending</h2>
-            <div id="overviewTrending" class="trend-grid"></div>
+            <div class="cg-panel-head">
+              <h2>Top Losers (24h)</h2>
+              <a href="/losers" class="cg-view-more" data-route="/losers">View more →</a>
+            </div>
+            <div id="overviewLosers" class="cg-coin-list"></div>
           </div>
-          <div class="panel">
-            <h2>Top Gainers (24h)</h2>
-            <div id="overviewGainers" class="movers-list"></div>
+        </div>
+
+        <div class="overview-news-section panel">
+          <div class="cg-panel-head">
+            <h2>Latest Crypto News</h2>
+            <a href="/news" class="cg-view-more" data-route="/news">View all →</a>
           </div>
-          <div class="panel">
-            <h2>Top Losers (24h)</h2>
-            <div id="overviewLosers" class="movers-list"></div>
+          <div id="overviewNews" class="news-grid news-grid-compact">
+            <div class="skeleton card-skeleton"></div>
           </div>
         </div>
       </section>
@@ -91,42 +159,61 @@
       <!-- MARKETS -->
       <section id="viewMarkets" class="view">
         <div class="section-header">
-          <h1>All Cryptocurrencies</h1>
-          <p id="marketsMeta" class="subtitle meta-line"></p>
+          <h1>Cryptocurrency Prices by Market Cap</h1>
+          <p class="subtitle">The number of cryptocurrencies globally is … · Live prices updated from CoinGecko</p>
+          <p id="marketsMeta" class="meta-line"></p>
         </div>
-        <div class="table-toolbar">
-          <label>Sort by
-            <select id="marketsSort" class="select-input">
-              <option value="market_cap">Market Cap</option>
-              <option value="rank">Rank</option>
-              <option value="price">Price</option>
-              <option value="volume">Volume</option>
-              <option value="change_desc">24h % (High → Low)</option>
-              <option value="change_asc">24h % (Low → High)</option>
-            </select>
-          </label>
+        <div class="market-filter-bar" role="tablist" aria-label="Market filters">
+          <button type="button" class="filter-chip active" aria-selected="true">All</button>
+          <button type="button" class="filter-chip is-planned" disabled title="Coming soon">Highlights</button>
+          <button type="button" class="filter-chip is-planned" disabled title="Coming soon">Categories</button>
+          <button type="button" class="filter-chip is-planned" disabled title="Coming soon">Chains</button>
+        </div>
+        <div class="table-toolbar market-toolbar">
+          <div class="toolbar-group">
+            <label class="toolbar-label">Sort by
+              <select id="marketsSort" class="select-input">
+                <option value="market_cap">Market Cap</option>
+                <option value="rank">Rank</option>
+                <option value="price">Price</option>
+                <option value="volume">Volume</option>
+                <option value="change_desc">24h % (High → Low)</option>
+                <option value="change_asc">24h % (Low → High)</option>
+              </select>
+            </label>
+            <label class="toolbar-label">Show
+              <select id="marketsPerPage" class="select-input">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
           <div class="pagination">
-            <button id="marketsPrev" class="btn btn-ghost btn-sm">← Prev</button>
-            <span id="marketsPageInfo"></span>
+            <button id="marketsPrev" class="btn btn-ghost btn-sm" disabled>← Prev</button>
+            <span id="marketsPageInfo" class="page-info"></span>
             <button id="marketsNext" class="btn btn-ghost btn-sm">Next →</button>
           </div>
         </div>
-        <div class="table-scroll">
-          <table class="market-table">
+        <div data-ad-slot="markets_leaderboard" class="ad-slot-mount"></div>
+        <div class="table-scroll market-table-shell">
+          <table class="market-table market-table-polished">
             <thead>
               <tr>
-                <th>#</th>
+                <th class="col-star" aria-label="Watchlist"></th>
+                <th class="col-rank">#</th>
                 <th>Coin</th>
-                <th>Price</th>
-                <th>24h %</th>
-                <th>7d %</th>
+                <th class="col-num">Price</th>
+                <th class="col-num">1h %</th>
+                <th class="col-num">24h %</th>
+                <th class="col-num">7d %</th>
                 <th>Last 7 Days</th>
-                <th>Market Cap</th>
-                <th>Volume (24h)</th>
-                <th>24h High</th>
-                <th>24h Low</th>
-                <th>Supply</th>
-                <th></th>
+                <th class="col-num">Market Cap</th>
+                <th class="col-num">Volume (24h)</th>
+                <th class="col-num">24h High</th>
+                <th class="col-num">24h Low</th>
+                <th class="col-num">Supply</th>
+                <th class="col-actions"></th>
               </tr>
             </thead>
             <tbody id="marketsTableBody"></tbody>
@@ -138,7 +225,11 @@
       <section id="viewTrending" class="view">
         <div class="section-header">
           <h1>Trending Coins</h1>
-          <p id="trendingMeta" class="subtitle meta-line"></p>
+          <p class="subtitle">Most searched cryptocurrencies on CoinGecko in the last 24 hours</p>
+          <p id="trendingMeta" class="meta-line"></p>
+        </div>
+        <div class="page-toolbar">
+          <span id="trendingCount" class="toolbar-count"></span>
         </div>
         <div id="trendingGrid" class="trend-grid wide"></div>
       </section>
@@ -147,11 +238,15 @@
       <section id="viewGainers" class="view">
         <div class="section-header">
           <h1>Top Gainers (24h)</h1>
-          <p id="gainersMeta" class="subtitle meta-line"></p>
+          <p class="subtitle">Cryptocurrencies with the largest price increases in the last 24 hours</p>
+          <p id="gainersMeta" class="meta-line"></p>
         </div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>7d %</th><th>Last 7 Days</th><th>Market Cap</th><th>Volume</th></tr></thead>
+        <div class="page-toolbar">
+          <span id="gainersCount" class="toolbar-count"></span>
+        </div>
+        <div class="table-scroll market-table-shell">
+          <table class="market-table market-table-polished">
+            <thead><tr><th class="col-rank">#</th><th>Coin</th><th class="col-num">Price</th><th class="col-num">24h %</th><th class="col-num">7d %</th><th>Last 7 Days</th><th class="col-num">Market Cap</th><th class="col-num">Volume</th><th class="col-actions"></th></tr></thead>
             <tbody id="gainersTableBody"></tbody>
           </table>
         </div>
@@ -161,11 +256,15 @@
       <section id="viewLosers" class="view">
         <div class="section-header">
           <h1>Top Losers (24h)</h1>
-          <p id="losersMeta" class="subtitle meta-line"></p>
+          <p class="subtitle">Cryptocurrencies with the largest price decreases in the last 24 hours</p>
+          <p id="losersMeta" class="meta-line"></p>
         </div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>7d %</th><th>Last 7 Days</th><th>Market Cap</th><th>Volume</th></tr></thead>
+        <div class="page-toolbar">
+          <span id="losersCount" class="toolbar-count"></span>
+        </div>
+        <div class="table-scroll market-table-shell">
+          <table class="market-table market-table-polished">
+            <thead><tr><th class="col-rank">#</th><th>Coin</th><th class="col-num">Price</th><th class="col-num">24h %</th><th class="col-num">7d %</th><th>Last 7 Days</th><th class="col-num">Market Cap</th><th class="col-num">Volume</th><th class="col-actions"></th></tr></thead>
             <tbody id="losersTableBody"></tbody>
           </table>
         </div>
@@ -175,13 +274,20 @@
       <section id="viewWatchlist" class="view">
         <div class="section-header">
           <h1>Watchlist</h1>
-          <p id="watchlistMeta" class="subtitle meta-line"></p>
+          <p class="subtitle">Track coins you care about — prices update live from CoinGecko</p>
+          <p id="watchlistMeta" class="meta-line"></p>
         </div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>Coin</th><th>Price</th><th>24h %</th><th>7d %</th><th>Last 7 Days</th><th>Market Cap</th><th>Volume</th><th></th></tr></thead>
-            <tbody id="watchlistTableBody"></tbody>
-          </table>
+        <div id="watchlistEmpty" class="watchlist-empty hidden"></div>
+        <div id="watchlistContent">
+          <div class="page-toolbar">
+            <span id="watchlistCount" class="toolbar-count"></span>
+          </div>
+          <div class="table-scroll market-table-shell">
+            <table class="market-table market-table-polished">
+              <thead><tr><th class="col-rank">#</th><th>Coin</th><th class="col-num">Price</th><th class="col-num">24h %</th><th class="col-num">7d %</th><th>Last 7 Days</th><th class="col-num">Market Cap</th><th class="col-num">Volume</th><th class="col-actions"></th></tr></thead>
+              <tbody id="watchlistTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -206,20 +312,21 @@
             <p id="dashPlBadge" class="dash-pl-badge"></p>
             <p id="dashGreeting" class="dash-greeting hidden">Welcome back</p>
           </div>
+          <div data-ad-slot="dashboard_leaderboard" class="ad-slot-mount"></div>
           <div class="panel dash-chart-panel">
             <div class="dash-chart-tabs">
-              <button type="button" class="dash-tab active">Line Chart</button>
-              <button type="button" class="dash-tab" disabled title="Coming soon">Pie Chart</button>
-              <button type="button" class="dash-tab" disabled title="Coming soon">Statistics</button>
+              <button type="button" class="dash-tab active" data-dash-chart="line">Line Chart</button>
+              <button type="button" class="dash-tab" data-dash-chart="pie">Pie Chart</button>
+              <button type="button" class="dash-tab" data-dash-chart="stats">Statistics</button>
             </div>
-            <div id="dashPortfolioChart" class="dash-portfolio-chart"></div>
+            <div id="dashPortfolioChart" class="dash-portfolio-chart dash-portfolio-chart-line"></div>
             <div class="dash-timeframes">
-              <span class="dash-tf">24h</span>
-              <span class="dash-tf">7d</span>
-              <span class="dash-tf">30d</span>
-              <span class="dash-tf active">60d</span>
-              <span class="dash-tf">90d</span>
-              <span class="dash-tf">All</span>
+              <button type="button" class="dash-tf" data-dash-days="1">24h</button>
+              <button type="button" class="dash-tf" data-dash-days="7">7d</button>
+              <button type="button" class="dash-tf" data-dash-days="30">30d</button>
+              <button type="button" class="dash-tf active" data-dash-days="60">60d</button>
+              <button type="button" class="dash-tf" data-dash-days="90">90d</button>
+              <button type="button" class="dash-tf" data-dash-days="all">All</button>
             </div>
           </div>
           <div id="dashStats" class="stats-grid"></div>
@@ -295,17 +402,69 @@
         </div>
       </section>
 
-      <!-- TRADES / ACTIVITY -->
-      <section id="viewTrades" class="view">
-        <div class="section-header"><h1>Activity</h1><p class="subtitle meta-line">Deposits, trades, and transfers on your account</p></div>
-        <div class="table-scroll">
-          <table class="market-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Total</th><th>Status</th></tr></thead>
-            <tbody id="tradesTableBody"></tbody>
-          </table>
+      <!-- NEWS -->
+      <section id="viewNews" class="view">
+        <div class="section-header">
+          <div class="news-header-row">
+            <div>
+              <h1>Crypto News</h1>
+              <p class="subtitle">Market headlines and project updates — powered by your configured news provider</p>
+            </div>
+            <span id="newsStatusBadge" class="news-status-badge">Not configured</span>
+          </div>
+        </div>
+        <div class="news-layout">
+          <div id="newsContent" class="news-content">
+            <div class="news-loading">
+              <div class="skeleton card-skeleton"></div>
+              <div class="skeleton card-skeleton"></div>
+              <div class="skeleton card-skeleton"></div>
+            </div>
+          </div>
+          <aside data-ad-slot="news_sidebar" class="ad-slot-mount ad-slot-mount-sidebar"></aside>
+        </div>
+      </section>
+
+      <!-- ACTIVITY -->
+      <section id="viewActivity" class="view">
+        <div id="activityGuest" class="activity-guest hidden">
+          <div class="activity-guest-card panel">
+            <h1>Account Activity</h1>
+            <p>Sign in to view your full transaction history — trades, deposits, and transfers.</p>
+            <button id="activitySignInBtn" type="button" class="btn btn-primary">Sign In</button>
+            <button type="button" class="btn btn-ghost" data-view-link="markets">Explore Markets</button>
+          </div>
+        </div>
+        <div id="activityContent" class="hidden">
+          <div class="section-header">
+            <h1>Activity</h1>
+            <p class="subtitle">Deposits, trades, and transfers on your account</p>
+          </div>
+          <div id="activityStats" class="activity-stats"></div>
+          <div class="page-toolbar activity-toolbar">
+            <div id="activityFilters" class="activity-filters"></div>
+            <span id="activityCount" class="toolbar-count"></span>
+          </div>
+          <div class="table-scroll market-table-shell">
+            <table class="market-table market-table-polished activity-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th class="col-num">Amount</th>
+                  <th class="col-num">Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="activityTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
+
+    <footer id="siteFooter" class="site-footer" aria-label="Site footer"></footer>
   </div>
 
   <div id="authModal" class="modal hidden">
@@ -332,6 +491,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/app.js?v=19"></script>
+  <script type="module" src="/js/main.js?v=41"></script>
 </body>
 </html>

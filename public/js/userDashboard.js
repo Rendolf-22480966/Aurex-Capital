@@ -1,5 +1,10 @@
 import { api } from './api.js';
 import { formatUsd, formatPct, formatNumber, pctClass } from './format.js';
+import {
+  initPortfolioChart,
+  updatePortfolioChart,
+  destroyPortfolioChart,
+} from './components/PortfolioChart.js';
 
 const $ = (sel) => document.querySelector(sel);
 let callbacks = {};
@@ -53,45 +58,6 @@ function renderGuest() {
   $('#dashContent')?.classList.add('hidden');
 }
 
-function renderPortfolioChart(totalValue, startingBalance) {
-  const el = $('#dashPortfolioChart');
-  if (!el) return;
-
-  const w = Math.max(el.clientWidth || 600, 320);
-  const h = 160;
-  const start = startingBalance || totalValue * 0.92;
-  const points = [];
-  const steps = 60;
-
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const trend = start + (totalValue - start) * t;
-    const noise = Math.sin(i * 0.45) * (totalValue * 0.012) + Math.cos(i * 0.18) * (totalValue * 0.008);
-    points.push(trend + noise);
-  }
-
-  const min = Math.min(...points) * 0.998;
-  const max = Math.max(...points) * 1.002;
-  const range = max - min || 1;
-  const coords = points.map((v, i) => {
-    const x = (i / steps) * w;
-    const y = h - ((v - min) / range) * (h - 16) - 8;
-    return `${x},${y}`;
-  });
-
-  const area = `M0,${h} L${coords.join(' L')} L${w},${h} Z`;
-  const line = `M${coords.join(' L')}`;
-
-  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="dash-chart-svg" aria-hidden="true">
-    <defs><linearGradient id="dashChartFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#16c784" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#16c784" stop-opacity="0"/>
-    </linearGradient></defs>
-    <path d="${area}" fill="url(#dashChartFill)"/>
-    <path d="${line}" fill="none" stroke="#16c784" stroke-width="2.5"/>
-  </svg>`;
-}
-
 function renderDashboard(data) {
   $('#dashGuest')?.classList.add('hidden');
   $('#dashContent')?.classList.remove('hidden');
@@ -121,7 +87,7 @@ function renderDashboard(data) {
 
   $('#dashPlBadge').innerHTML = `<span class="${plClass}">${formatUsd(summary.profit_loss)} (${formatPct(summary.profit_loss_pct)})</span> all-time · ${account.display_name}`;
 
-  renderPortfolioChart(summary.total_value, summary.starting_balance);
+  updatePortfolioChart(data);
 
   $('#dashStats').innerHTML = `
     <div class="stat-card highlight"><div class="stat-label">Total Portfolio</div><div class="stat-value">${formatUsd(summary.total_value)}</div></div>
@@ -166,10 +132,11 @@ function renderDashboard(data) {
 
 export function initUserDashboard(cbs = {}) {
   callbacks = cbs;
+  initPortfolioChart();
 
   $('#dashSignInBtn')?.addEventListener('click', () => callbacks.onSignIn?.());
   $('#dashBrowseMarkets')?.addEventListener('click', () => callbacks.onNavigate?.('markets'));
-  $('#dashViewActivity')?.addEventListener('click', () => callbacks.onNavigate?.('trades'));
+  $('#dashViewActivity')?.addEventListener('click', () => callbacks.onNavigate?.('activity'));
   $('#dashExploreBtn')?.addEventListener('click', () => callbacks.onNavigate?.('markets'));
 
   $('#dashHoldingsBody')?.addEventListener('click', (e) => {
@@ -191,7 +158,7 @@ export async function loadUserDashboard() {
   }
 
   try {
-    const data = await api.getUserDashboard();
+    const data = await api.refreshUserDashboard();
     renderDashboard(data);
     callbacks.onUserUpdate?.(data);
     return data;
@@ -232,12 +199,13 @@ export async function loadOverviewWidget() {
 export function onDashboardActivated() {
   loadUserDashboard();
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(loadUserDashboard, 60_000);
+  refreshTimer = setInterval(loadUserDashboard, 30_000);
 }
 
 export function onDashboardDeactivated() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = null;
+  destroyPortfolioChart();
 }
 
 export { renderActivityRow, ledgerTypeClass, formatLedgerAmount };

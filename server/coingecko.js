@@ -10,10 +10,14 @@ const TTL = {
   trending: 120_000,
   movers: 90_000,
   chart: 300_000,
+  globalChart: 300_000,
   coin: 120_000,
   search: 120_000,
   price: 45_000,
+  dashboardBundle: 45_000,
 };
+
+const MAX_CACHE_ENTRIES = 250;
 
 const MIN_INTERVAL = API_KEY ? 500 : 2500;
 let lastRequestTime = 0;
@@ -30,7 +34,7 @@ function buildHeaders() {
 }
 
 function cacheKey(path, params) {
-  return `${path}?v2-${JSON.stringify(params)}`;
+  return `${path}?v3-${JSON.stringify(params)}`;
 }
 
 function getCached(key) {
@@ -38,6 +42,10 @@ function getCached(key) {
 }
 
 function setCache(key, data) {
+  if (cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = [...cache.entries()].sort((a, b) => a[1].time - b[1].time)[0];
+    if (oldest) cache.delete(oldest[0]);
+  }
   cache.set(key, { data, time: Date.now() });
 }
 
@@ -134,7 +142,7 @@ async function getMarkets({ page = 1, perPage = 50, order = 'market_cap_desc', i
     per_page: Math.min(perPage, 250),
     page,
     sparkline: 'true',
-    price_change_percentage: '24h,7d',
+    price_change_percentage: '1h,24h,7d',
   };
   if (ids?.length) {
     params.ids = ids.join(',');
@@ -156,11 +164,31 @@ async function getTrending() {
 }
 
 async function getGainers(perPage = 20) {
-  return getMarkets({ page: 1, perPage, order: 'price_change_percentage_24h_desc' });
+  const fetchCount = Math.min(Math.max(perPage * 4, 100), 250);
+  const { coins, meta } = await getMarkets({
+    page: 1,
+    perPage: fetchCount,
+    order: 'price_change_percentage_24h_desc',
+  });
+  const filtered = coins
+    .filter((c) => Number(c.price_change_percentage_24h) > 0)
+    .sort((a, b) => (b.price_change_percentage_24h ?? 0) - (a.price_change_percentage_24h ?? 0))
+    .slice(0, perPage);
+  return { coins: filtered, meta: { ...meta, filtered: true, source: 'coingecko_live' } };
 }
 
 async function getLosers(perPage = 20) {
-  return getMarkets({ page: 1, perPage, order: 'price_change_percentage_24h_asc' });
+  const fetchCount = Math.min(Math.max(perPage * 4, 100), 250);
+  const { coins, meta } = await getMarkets({
+    page: 1,
+    perPage: fetchCount,
+    order: 'price_change_percentage_24h_asc',
+  });
+  const filtered = coins
+    .filter((c) => Number(c.price_change_percentage_24h) < 0)
+    .sort((a, b) => (a.price_change_percentage_24h ?? 0) - (b.price_change_percentage_24h ?? 0))
+    .slice(0, perPage);
+  return { coins: filtered, meta: { ...meta, filtered: true, source: 'coingecko_live' } };
 }
 
 async function getCoin(id) {
@@ -202,14 +230,93 @@ async function searchCoins(query) {
   return { results: data, meta };
 }
 
+async function getGlobalMarketChart(days = 7) {
+  const allowed = new Set([1, 7, 14, 30, 90, 180, 365]);
+  const d = allowed.has(Number(days)) ? Number(days) : 7;
+
+  if (API_KEY) {
+    try {
+      const { data, meta } = await coingeckoFetch(
+        '/global/market_cap_chart',
+        { vs_currency: 'usd', days: d },
+        TTL.globalChart
+      );
+      const nested = data?.market_cap_chart?.market_cap;
+      const flat = Array.isArray(data?.market_cap_chart) ? data.market_cap_chart : null;
+      const series = nested || flat || [];
+      if (series.length) {
+        return { points: series, days: d, meta: { ...meta, source: 'global' } };
+      }
+    } catch (err) {
+      if (!String(err.message).includes('401') && !String(err.message).includes('10005')) {
+        throw err;
+      }
+    }
+  }
+
+  return buildAggregatedGlobalMarketChart(d);
+}
+
+async function buildAggregatedGlobalMarketChart(days) {
+  const key = cacheKey('agg-global-chart', { days });
+  const cached = getCached(key);
+  if (cached && Date.now() - cached.time < TTL.globalChart) {
+    return {
+      points: cached.data.points,
+      days,
+      meta: { ...cached.data.meta, fromCache: true },
+    };
+  }
+
+  const { chart, meta: chartMeta } = await getMarketChart('bitcoin', days);
+  let points = (chart?.market_caps || [])
+    .filter(([, cap]) => Number.isFinite(cap))
+    .sort((a, b) => a[0] - b[0]);
+
+  if (!points.length) throw new Error('Global market chart unavailable');
+
+  const meta = {
+    cachedAt: chartMeta?.cachedAt || new Date().toISOString(),
+    stale: Boolean(chartMeta?.stale),
+    fromCache: Boolean(chartMeta?.fromCache),
+    source: 'aggregated',
+    scaledToGlobal: false,
+  };
+
+  try {
+    const { global } = await getGlobal();
+    const target = global?.total_market_cap?.usd;
+    const lastVal = points[points.length - 1]?.[1];
+    if (target && lastVal && lastVal > 0) {
+      const scale = target / lastVal;
+      points = points.map(([ts, value]) => [ts, value * scale]);
+      meta.scaledToGlobal = true;
+    }
+  } catch (_) {
+    /* keep unscaled BTC market cap series */
+  }
+
+  setCache(key, { points, meta });
+  return { points, days, meta };
+}
+
 async function getDashboardBundle() {
+  const bundleKey = cacheKey('/dashboard-bundle', {});
+  const cached = getCached(bundleKey);
+  if (cached && Date.now() - cached.time < TTL.dashboardBundle) {
+    return {
+      ...cached.data,
+      meta: { ...cached.data.meta, bundleFromCache: true },
+    };
+  }
+
   const [globalRes, trendingRes, gainersRes, losersRes] = await Promise.all([
     getGlobal(),
     getTrending(),
     getGainers(10),
     getLosers(10),
   ]);
-  return {
+  const bundle = {
     global: globalRes.global,
     trending: trendingRes.trending,
     gainers: gainersRes.coins,
@@ -221,6 +328,8 @@ async function getDashboardBundle() {
       losers: losersRes.meta,
     },
   };
+  setCache(bundleKey, bundle);
+  return bundle;
 }
 
 module.exports = {
@@ -231,6 +340,7 @@ module.exports = {
   getLosers,
   getCoin,
   getMarketChart,
+  getGlobalMarketChart,
   getSimplePrices,
   searchCoins,
   getDashboardBundle,

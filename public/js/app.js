@@ -1,5 +1,5 @@
-import { api, getToken, setToken } from './api.js';
-import { formatUsd, formatPct, formatNumber, pctClass } from './format.js';
+import { api, getToken, setToken, invalidateMarketCache } from './api.js';
+import { formatUsd } from './format.js';
 import { initDashboard, onViewActivated, openCoin, dashboardState } from './dashboard.js';
 import { initWatchlist, syncWatchlistOnLogin, clearWatchlistCache } from './watchlist.js';
 import { showWelcomeBanner, hideWelcomeBanner, dismissWelcomeIfVisible } from './welcome.js';
@@ -9,48 +9,132 @@ import {
   loadOverviewWidget,
   onDashboardActivated,
   onDashboardDeactivated,
-  ledgerTypeClass,
-  formatLedgerAmount,
 } from './userDashboard.js';
+import { initRouter, navigateView, suppressPopOnce } from './router.js';
+import { MARKET_ROUTES, VIEW_ALIASES } from './config/routes.js';
+import { appState, setUser, setRoute } from './state/appState.js';
+import { renderPlaceholderPage } from './views/PlaceholderView.js';
+import { initGlobalNav } from './components/GlobalNav.js';
+import { initMegaMenu, closeMegaMenu } from './components/MegaMenu.js';
+import { initMobileNav, closeMobileNav } from './components/MobileNav.js';
+import { initLiveStatus } from './components/LiveStatus.js';
+import { initGlobalMarketChart } from './components/GlobalMarketChart.js';
+import { initActivityView, loadActivity, resetActivityFilter } from './components/ActivityView.js';
+import { initNewsView, loadNews } from './components/NewsView.js';
+import { initAdvertisingSlots, refreshAdvertisingSlots, mountVisibleAdSlots } from './components/AdvertisingSlot.js';
+import { initSiteFooter } from './components/SiteFooter.js';
+import { initMarketTicker } from './components/MarketTicker.js';
 
-const state = { user: null, currentView: 'overview' };
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-function showView(name) {
-  state.currentView = name;
-  $$('.view').forEach((v) => v.classList.remove('active'));
-  $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
-  $(`#view${capitalize(name)}`)?.classList.add('active');
-  if (['overview', 'markets', 'trending', 'gainers', 'losers', 'watchlist', 'coin'].includes(name)) {
-    onViewActivated(name);
+function normalizeView(name) {
+  return VIEW_ALIASES[name] || name;
+}
+
+function viewElementId(view) {
+  const v = normalizeView(view);
+  if (v === 'coin') return 'viewCoinDetail';
+  return `view${v.charAt(0).toUpperCase()}${v.slice(1)}`;
+}
+
+function updateNavActive(view) {
+  const v = normalizeView(view);
+  $$('.market-nav-link').forEach((link) => {
+    link.classList.toggle('active', link.dataset.view === v);
+  });
+  $$('.global-nav-link').forEach((link) => link.classList.remove('active'));
+  $$('.global-nav-trigger').forEach((btn) => btn.classList.remove('is-open'));
+}
+
+function updateGlobalNavActive(pathname) {
+  $$('.global-nav-link').forEach((link) => {
+    const href = link.getAttribute('href');
+    link.classList.toggle('active', href === pathname);
+  });
+}
+
+function applyMarketsQuery(query = {}) {
+  if (query.page) dashboardState.marketsPage = Math.max(1, Number(query.page) || 1);
+  if (query.sort) {
+    dashboardState.marketsSort = query.sort;
+    const sel = $('#marketsSort');
+    if (sel) sel.value = query.sort;
   }
-  if (name === 'dashboard') onDashboardActivated();
-  else onDashboardDeactivated();
-  if (name === 'trades') loadActivity();
-  if (name === 'overview') loadOverviewWidget();
 }
 
-function capitalize(s) {
-  if (s === 'coin') return 'CoinDetail';
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function activateMarketView(view, params = {}, query = {}) {
+  const v = normalizeView(view);
+  setRoute({ type: 'market', view: v, params, query });
+
+  $$('.view').forEach((el) => el.classList.remove('active'));
+  $(`#${viewElementId(v)}`)?.classList.add('active');
+  updateNavActive(v);
+
+  if (v === 'markets') applyMarketsQuery(query);
+
+  const marketViews = ['overview', 'markets', 'trending', 'gainers', 'losers', 'watchlist', 'coin'];
+  if (marketViews.includes(v)) {
+    if (v === 'coin' && params.id) {
+      dashboardState.selectedCoinId = params.id;
+      onViewActivated('coin');
+    } else {
+      onViewActivated(v);
+    }
+  }
+
+  if (v === 'dashboard') {
+    onDashboardActivated();
+    refreshAdvertisingSlots();
+  } else onDashboardDeactivated();
+
+  if (v === 'activity') loadActivity();
+  if (v === 'overview') {
+    loadOverviewWidget();
+    refreshAdvertisingSlots();
+  }
+  if (v === 'markets') refreshAdvertisingSlots();
+  if (v === 'news') {
+    loadNews();
+    refreshAdvertisingSlots();
+  }
+
+  const routeMeta = Object.values(MARKET_ROUTES).find((r) => r.view === v);
+  if (routeMeta?.title) {
+    document.title = `${routeMeta.title} — Aurex Capital`;
+  }
 }
 
-function renderLedgerRow(entry) {
-  const total = entry.total_usd != null ? formatUsd(entry.total_usd) : '—';
-  return `<tr>
-    <td>${new Date(entry.created_at).toLocaleString()}</td>
-    <td><span class="ledger-type ${ledgerTypeClass(entry.type)}">${entry.label}</span></td>
-    <td>${entry.description}${entry.coin_name ? `<div class="coin-symbol">${entry.coin_name}</div>` : ''}</td>
-    <td>${formatLedgerAmount(entry)}</td>
-    <td>${total}</td>
-    <td>${entry.status}</td>
-  </tr>`;
+function handleRoute(route) {
+  closeMegaMenu();
+  closeMobileNav();
+
+  if (route.type === 'placeholder') {
+    $$('.view').forEach((el) => el.classList.remove('active'));
+    $('#viewPlaceholder')?.classList.add('active');
+    $$('.market-nav-link').forEach((link) => link.classList.remove('active'));
+    updateGlobalNavActive(window.location.pathname.replace(/\/+$/, '') || '/');
+    setRoute(route);
+    renderPlaceholderPage(route.pageId);
+    return;
+  }
+
+  activateMarketView(route.view, route.params, route.query);
 }
+
+export function showView(name, options = {}) {
+  const view = normalizeView(name);
+  navigateView(view, {
+    params: options.params || (view === 'coin' && options.coinId ? { id: options.coinId } : {}),
+    query: options.query || {},
+    replace: options.replace,
+  });
+}
+
 
 function enterAppAfterAuth() {
   showView('dashboard');
-  showWelcomeBanner(state.user);
+  showWelcomeBanner(appState.user);
 }
 
 function displayName(user) {
@@ -60,17 +144,20 @@ function displayName(user) {
 }
 
 function updateAuthUI() {
-  const loggedIn = !!state.user;
+  const loggedIn = !!appState.user;
   $('#userPanel')?.classList.toggle('hidden', !loggedIn);
   $('#loginBtn')?.classList.toggle('hidden', loggedIn);
   $$('.user-only').forEach((el) => {
     el.classList.toggle('hidden', !loggedIn);
   });
-  const needsVerify = loggedIn && state.user && !state.user.email_verified;
+  $$('#mobileNavOverlay .user-only').forEach((el) => {
+    el.classList.toggle('hidden', !loggedIn);
+  });
+  const needsVerify = loggedIn && appState.user && !appState.user.email_verified;
   $('#verifyBanner')?.classList.toggle('hidden', !needsVerify);
   if (loggedIn) {
-    $('#headerBalance').textContent = formatUsd(state.user.balance_usd);
-    $('#headerUsername').textContent = displayName(state.user);
+    $('#headerBalance').textContent = formatUsd(appState.user.balance_usd);
+    $('#headerUsername').textContent = displayName(appState.user);
   }
 }
 
@@ -157,13 +244,16 @@ function closeAuth() {
 async function initAuth() {
   try {
     const { user } = await api.me();
-    state.user = user;
+    setUser(user);
+    appState.user = user;
     updateAuthUI();
     await initWatchlist();
     loadOverviewWidget();
   } catch {
     setToken(null);
     clearWatchlistCache();
+    setUser(null);
+    appState.user = null;
   }
 }
 
@@ -173,7 +263,7 @@ async function executeTrade() {
   msg.textContent = '';
   msg.className = 'trade-message';
 
-  if (!state.user) {
+  if (!appState.user) {
     openAuth('login');
     return;
   }
@@ -195,13 +285,14 @@ async function executeTrade() {
       side,
       amountCoin,
     });
-    state.user = result.user;
+    appState.user = result.user;
+    setUser(result.user);
     updateAuthUI();
     msg.textContent = `${side === 'buy' ? 'Bought' : 'Sold'} at ${formatUsd(result.price_usd)}`;
     msg.classList.add('success');
     $('#tradeAmount').value = '';
     updateTradeEstimate();
-    if (state.currentView === 'dashboard') loadUserDashboard();
+    if (appState.currentView === 'dashboard') loadUserDashboard();
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('error');
@@ -225,44 +316,30 @@ function updateTradeEstimate() {
   if (el) el.textContent = formatUsd(amount * price);
 }
 
-async function loadActivity() {
-  if (!state.user) {
-    $('#tradesTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Sign in to view your activity</td></tr>';
-    return;
-  }
-  try {
-    const { transactions } = await api.getTransactions(50);
-    $('#tradesTableBody').innerHTML = transactions.length
-      ? transactions.map(renderLedgerRow).join('')
-      : '<tr><td colspan="6" class="empty-state">No activity yet</td></tr>';
-  } catch (err) {
-    console.error(err);
-  }
-}
 
 function bindEvents() {
-  $$('.nav-btn').forEach((btn) => {
-    btn.addEventListener('click', () => showView(btn.dataset.view));
+  $('#backToMarkets')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showView('markets');
   });
-
-  document.querySelectorAll('[data-view-link]').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      showView(el.dataset.viewLink);
-    });
-  });
-
-  $('#backToMarkets')?.addEventListener('click', () => showView('markets'));
   $('#loginBtn')?.addEventListener('click', () => openAuth('login'));
   $('#logoutBtn')?.addEventListener('click', async () => {
-    try { await api.logout(); } catch { /* ignore */ }
+    try {
+      await api.logout();
+    } catch {
+      /* ignore */
+    }
     hideWelcomeBanner();
     setToken(null);
     clearWatchlistCache();
-    state.user = null;
+    invalidateMarketCache();
+    resetActivityFilter();
+    setUser(null);
+    appState.user = null;
     updateAuthUI();
     $('#overviewUserDash')?.classList.add('hidden');
     onDashboardDeactivated();
+    if (appState.currentView === 'activity') loadActivity();
   });
   $('#closeAuthModal')?.addEventListener('click', closeAuth);
   $('.modal-backdrop')?.addEventListener('click', closeAuth);
@@ -294,7 +371,8 @@ function bindEvents() {
       if (mode === 'login') {
         const result = await api.login($('#authEmail').value.trim(), $('#authPassword').value);
         setToken(result.token);
-        state.user = result.user;
+        appState.user = result.user;
+        setUser(result.user);
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
@@ -308,7 +386,8 @@ function bindEvents() {
           confirmPassword: $('#authConfirmPassword').value,
         });
         setToken(result.token);
-        state.user = result.user;
+        appState.user = result.user;
+        setUser(result.user);
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
@@ -352,13 +431,15 @@ async function handleAuthUrlParams() {
   if (verifyToken) {
     params.delete('verify');
     const next = params.toString() ? `?${params}` : window.location.pathname;
+    suppressPopOnce();
     window.history.replaceState({}, '', next);
     try {
       const result = await api.verifyEmail(verifyToken);
       showToast(result.message || 'Email verified');
-      if (state.user) {
+      if (appState.user) {
         const { user } = await api.me();
-        state.user = user;
+        appState.user = user;
+        setUser(user);
         updateAuthUI();
       }
     } catch (err) {
@@ -369,6 +450,7 @@ async function handleAuthUrlParams() {
   if (resetToken) {
     params.delete('reset');
     const next = params.toString() ? `?${params}` : window.location.pathname;
+    suppressPopOnce();
     window.history.replaceState({}, '', next);
     openAuth('reset', { resetToken });
   }
@@ -394,27 +476,37 @@ function initScrollChrome() {
   };
 
   window.addEventListener('scroll', onScroll, { passive: true });
-  document.addEventListener('scroll', onScroll, { passive: true });
   update();
 }
 
-async function init() {
+export async function bootstrap() {
   dashboardState.tradeSide = 'buy';
   initDashboard({
-    onNavigate: (view) => showView(view),
+    getUser: () => appState.user,
+    onNavigate: (view, opts = {}) =>
+      showView(view, { params: opts.coinId ? { id: opts.coinId } : opts.params }),
+    onSignIn: () => openAuth('login'),
     onWatchlistChange: () => {
-      if (state.currentView === 'watchlist') onViewActivated('watchlist');
+      if (appState.currentView === 'watchlist') onViewActivated('watchlist');
     },
     onToast: showToast,
   });
+  initActivityView({
+    getUser: () => appState.user,
+    onSignIn: () => openAuth('login'),
+    onOpenCoin: (id) => openCoin(id),
+  });
+  initNewsView();
+  initAdvertisingSlots();
   initUserDashboard({
-    getUser: () => state.user,
+    getUser: () => appState.user,
     onNavigate: (view) => showView(view),
     onOpenCoin: (id) => openCoin(id),
     onSignIn: () => openAuth('login'),
     onUserUpdate: (data) => {
-      if (state.user && data?.summary) {
-        state.user.balance_usd = data.summary.cash_balance;
+      if (appState.user && data?.summary) {
+        appState.user.balance_usd = data.summary.cash_balance;
+        setUser(appState.user);
         updateAuthUI();
       }
     },
@@ -422,6 +514,17 @@ async function init() {
   bindEvents();
   updateTradeUI();
   initScrollChrome();
+  initGlobalNav();
+  initMegaMenu();
+  initMobileNav();
+  initLiveStatus();
+  initGlobalMarketChart();
+  initMarketTicker();
+  initSiteFooter();
+
+  // Router first so tabs work even while auth/API calls are in flight
+  initRouter(handleRoute);
+
   await initAuth();
   await handleAuthUrlParams();
 
@@ -430,14 +533,10 @@ async function init() {
   } catch {
     const main = document.querySelector('.main');
     if (main) {
-      main.insertAdjacentHTML('afterbegin',
-        '<div class="server-warning">⚠ Old server detected. In terminal run: <code>npm start</code> then hard refresh (Ctrl+Shift+R)</div>');
+      main.insertAdjacentHTML(
+        'afterbegin',
+        '<div class="server-warning">⚠ Old server detected. In terminal run: <code>npm start</code> then hard refresh (Ctrl+Shift+R)</div>'
+      );
     }
   }
-
-  showView('overview');
 }
-
-init();
-
-export { showView, openCoin };

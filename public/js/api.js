@@ -1,15 +1,14 @@
-const API = '/api';
+import { getToken, setToken } from './apiCore.js';
+import { cachedFetch, cacheKeyFor, CACHE_TTL, invalidateMarketCache } from './state/marketCache.js';
 
-export function getToken() {
-  return localStorage.getItem('token');
+export { getToken, setToken, invalidateMarketCache };
+
+async function cachedGet(path, ttl) {
+  return cachedFetch(cacheKeyFor(path), () => rawRequest(path), ttl);
 }
 
-export function setToken(token) {
-  if (token) localStorage.setItem('token', token);
-  else localStorage.removeItem('token');
-}
-
-async function request(path, options = {}) {
+async function rawRequest(path, options = {}) {
+  const API = '/api';
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -22,6 +21,10 @@ async function request(path, options = {}) {
   }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
+}
+
+async function request(path, options = {}) {
+  return rawRequest(path, options);
 }
 
 export const api = {
@@ -45,29 +48,86 @@ export const api = {
       body: JSON.stringify({ token, password, confirmPassword }),
     }),
 
-  getMarketDashboard: () => request('/market/dashboard'),
-  getUserDashboard: () => request('/dashboard/user'),
-  getGlobal: () => request('/market/global'),
+  getMarketDashboard: () => cachedGet('/market/dashboard', CACHE_TTL.dashboard),
+  getUserDashboard: () => cachedGet('/dashboard/user', CACHE_TTL.userDashboard),
+  refreshUserDashboard: () => {
+    invalidateMarketCache('GET /dashboard/user');
+    return rawRequest('/dashboard/user');
+  },
+  getGlobal: () => cachedGet('/market/global', CACHE_TTL.global),
+  getGlobalChart: (days = 7) =>
+    cachedGet(`/market/global-chart?days=${days}`, CACHE_TTL.globalChart),
   getHealth: () => request('/health'),
-  getTrending: () => request('/market/trending'),
-  getGainers: (perPage = 20) => request(`/market/gainers?per_page=${perPage}`),
-  getLosers: (perPage = 20) => request(`/market/losers?per_page=${perPage}`),
+  getTrending: () => cachedGet('/market/trending', CACHE_TTL.trending),
+  getGainers: (perPage = 20) =>
+    cachedGet(`/market/gainers?per_page=${perPage}`, CACHE_TTL.gainers),
+  getLosers: (perPage = 20) =>
+    cachedGet(`/market/losers?per_page=${perPage}`, CACHE_TTL.losers),
   getMarkets: (page = 1, perPage = 50, sort = 'market_cap') =>
-    request(`/market/coins?page=${page}&per_page=${perPage}&sort=${sort}`),
-  getMarketsByIds: (ids) =>
-    request(`/market/coins?ids=${ids.join(',')}&per_page=${ids.length}`),
-  getCoin: (id) => request(`/market/coin/${id}`),
-  getChart: (id, days) => request(`/market/chart/${id}?days=${days}`),
-  search: (q) => request(`/market/search?q=${encodeURIComponent(q)}`),
+    cachedGet(
+      `/market/coins?page=${page}&per_page=${perPage}&sort=${sort}`,
+      CACHE_TTL.markets
+    ),
+  getMarketsByIds: (ids) => {
+    const sorted = [...ids].sort().join(',');
+    return cachedGet(
+      `/market/coins?ids=${sorted}&per_page=${ids.length}`,
+      CACHE_TTL.marketsByIds
+    );
+  },
+  getCoin: (id) => cachedGet(`/market/coin/${encodeURIComponent(id)}`, CACHE_TTL.coin),
+  getChart: (id, days) =>
+    cachedGet(`/market/chart/${encodeURIComponent(id)}?days=${days}`, CACHE_TTL.chart),
+  search: (q) => {
+    const trimmed = q.trim();
+    if (!trimmed) return Promise.resolve({ results: {} });
+    return cachedGet(
+      `/market/search?q=${encodeURIComponent(trimmed)}`,
+      CACHE_TTL.search
+    );
+  },
+
+  getNews: async (page = 1, limit = 20) => {
+    const path = `/news?page=${page}&limit=${limit}`;
+    const data = await cachedGet(path, CACHE_TTL.news);
+    if (!data.configured) {
+      invalidateMarketCache(`GET ${path}`);
+      return rawRequest(path);
+    }
+    return data;
+  },
+  getAdSlots: async (slotId) => {
+    const path = slotId
+      ? `/advertising/slots?slot=${encodeURIComponent(slotId)}`
+      : '/advertising/slots';
+    const data = await cachedGet(path, CACHE_TTL.ads);
+    const pool = data.slots?.overview_leaderboard?.creatives;
+    const stale = !data.configured || !Array.isArray(pool) || pool.length === 0;
+    if (stale) {
+      invalidateMarketCache(`GET ${path}`);
+      const fresh = await rawRequest(path);
+      const freshPool = fresh.slots?.overview_leaderboard?.creatives;
+      if (Array.isArray(freshPool) && freshPool.length > 0) return fresh;
+      invalidateMarketCache(`GET ${path}`);
+      return fresh;
+    }
+    return data;
+  },
 
   getPortfolio: () => request('/portfolio'),
   getTransactions: (limit = 100) => request(`/transactions?limit=${limit}`),
-  trade: (payload) => request('/trade', { method: 'POST', body: JSON.stringify(payload) }),
+  trade: async (payload) => {
+    const result = await request('/trade', { method: 'POST', body: JSON.stringify(payload) });
+    invalidateMarketCache('GET /dashboard');
+    invalidateMarketCache('GET /dashboard/user');
+    return result;
+  },
 
   getWatchlist: () => request('/watchlist'),
   syncWatchlist: (coinIds) =>
     request('/watchlist/sync', { method: 'POST', body: JSON.stringify({ coinIds }) }),
   toggleWatchlist: (coinId) =>
     request('/watchlist/toggle', { method: 'POST', body: JSON.stringify({ coinId }) }),
-  removeFromWatchlist: (coinId) => request(`/watchlist/${encodeURIComponent(coinId)}`, { method: 'DELETE' }),
+  removeFromWatchlist: (coinId) =>
+    request(`/watchlist/${encodeURIComponent(coinId)}`, { method: 'DELETE' }),
 };

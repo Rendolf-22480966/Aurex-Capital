@@ -70,6 +70,36 @@ async function main() {
   if (!r.res.headers.get('x-ratelimit-limit')) fail('rate limit headers missing');
   pass('GET /market/global + rate-limit headers');
 
+  r = await request('/api/market/global-chart?days=7');
+  if (!r.res.ok) fail('GET /market/global-chart failed');
+  if (!Array.isArray(r.data.points) || r.data.points.length === 0) {
+    fail('GET /market/global-chart should return points array');
+  }
+  pass(`GET /market/global-chart (${r.data.points.length} points)`);
+
+  r = await request('/api/news');
+  if (!r.res.ok) fail('GET /news failed');
+  if (r.data.configured !== true) fail('GET /news should return configured:true with live RSS feed');
+  if (!Array.isArray(r.data.articles)) fail('GET /news should return articles array');
+  pass(`GET /news (${r.data.articles.length} articles via ${r.data.meta?.provider || 'rss'})`);
+
+  r = await request('/api/advertising/slots');
+  if (!r.res.ok) fail('GET /advertising/slots failed');
+  if (r.data.configured !== true) fail('GET /advertising/slots should return configured:true');
+  if (!r.data.slots?.overview_leaderboard?.active) fail('GET /advertising/slots missing active overview_leaderboard');
+  const pool = r.data.slots.overview_leaderboard.creatives;
+  if (!Array.isArray(pool) || pool.length < 4) fail('GET /advertising/slots should return sponsor rotation pool');
+  pass(`GET /advertising/slots (${pool.length} sponsors, ${r.data.meta?.rotationMs || 30000}ms rotation)`);
+
+  r = await request('/api/market/gainers?per_page=5');
+  if (!r.res.ok) fail('GET /market/gainers failed');
+  if (!Array.isArray(r.data.coins) || r.data.coins.length === 0) fail('GET /market/gainers empty');
+  const topGainer = r.data.coins[0];
+  if ((topGainer.price_change_percentage_24h ?? 0) <= 0) {
+    fail('GET /market/gainers first coin should have positive 24h change');
+  }
+  pass(`GET /market/gainers (top: ${topGainer.symbol} +${topGainer.price_change_percentage_24h?.toFixed(1)}%)`);
+
   r = await request('/api/dashboard/user', { headers: auth });
   if (!r.res.ok || !r.data.summary) fail('GET /dashboard/user failed');
   pass('GET /dashboard/user');

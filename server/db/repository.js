@@ -172,6 +172,15 @@ function getTransactions(userId, limit = 50) {
   ).all(userId, limit);
 }
 
+function getUserTransactionsAsc(userId) {
+  return prepare(
+    `SELECT type, amount, currency, coin_id, price_usd, total_usd, created_at
+     FROM transactions
+     WHERE user_id = ? AND status = 'completed'
+     ORDER BY created_at ASC`
+  ).all(userId);
+}
+
 function getPlatformStats() {
   return prepare(
     `SELECT
@@ -373,6 +382,7 @@ module.exports = {
   getHoldings,
   getTrades,
   getTransactions,
+  getUserTransactionsAsc,
   getPlatformStats,
   getUserStartingBalance,
   getUserTransactionStats,

@@ -76,6 +76,110 @@ function getUserActivityStats(userId) {
   return db.getUserTransactionStats(userId);
 }
 
+function replayPortfolioHistory(txns) {
+  let cash = 0;
+  const holdings = {};
+
+  const holdingsValue = () =>
+    Object.values(holdings).reduce(
+      (sum, h) => sum + Math.max(0, h.amount) * (h.lastPrice || 0),
+      0
+    );
+
+  const ensureHolding = (coinId, price = 0) => {
+    if (!holdings[coinId]) holdings[coinId] = { amount: 0, lastPrice: price };
+    return holdings[coinId];
+  };
+
+  const points = [];
+
+  for (const tx of txns) {
+    const coinId = tx.coin_id;
+    switch (tx.type) {
+      case 'deposit':
+        cash += tx.amount;
+        break;
+      case 'withdrawal':
+        cash -= tx.amount;
+        break;
+      case 'received':
+        if (tx.currency === 'USD') {
+          cash += tx.amount;
+        } else if (coinId) {
+          const h = ensureHolding(coinId);
+          h.amount += tx.amount;
+          const px =
+            tx.price_usd || (tx.total_usd && tx.amount ? tx.total_usd / tx.amount : h.lastPrice);
+          if (px > 0) h.lastPrice = px;
+        }
+        break;
+      case 'sent':
+        if (tx.currency === 'USD') {
+          cash -= tx.amount;
+        } else if (coinId && holdings[coinId]) {
+          holdings[coinId].amount -= tx.amount;
+        }
+        break;
+      case 'buy':
+        cash -= tx.total_usd || 0;
+        if (coinId) {
+          const h = ensureHolding(coinId, tx.price_usd || 0);
+          h.amount += tx.amount;
+          if (tx.price_usd) h.lastPrice = tx.price_usd;
+        }
+        break;
+      case 'sell':
+        cash += tx.total_usd || 0;
+        if (coinId && holdings[coinId]) {
+          holdings[coinId].amount -= tx.amount;
+          if (tx.price_usd) holdings[coinId].lastPrice = tx.price_usd;
+        }
+        break;
+      default:
+        break;
+    }
+
+    const ts = Math.floor(new Date(tx.created_at).getTime() / 1000);
+    if (Number.isFinite(ts) && ts > 0) {
+      points.push({ time: ts, value: Math.max(0, cash + holdingsValue()) });
+    }
+  }
+
+  return points;
+}
+
+function buildPortfolioHistory(userId, currentTotalValue) {
+  const txns = db.getUserTransactionsAsc(userId);
+  const points = replayPortfolioHistory(txns);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (points.length === 0) {
+    return [
+      { time: now - 86400, value: currentTotalValue },
+      { time: now, value: currentTotalValue },
+    ];
+  }
+
+  const last = points[points.length - 1];
+  if (last.time !== now) {
+    points.push({ time: now, value: currentTotalValue });
+  } else {
+    last.value = currentTotalValue;
+  }
+
+  const deduped = [];
+  for (const p of points) {
+    const prev = deduped[deduped.length - 1];
+    if (prev && prev.time === p.time) {
+      prev.value = p.value;
+    } else {
+      deduped.push(p);
+    }
+  }
+
+  return deduped;
+}
+
 async function buildUserDashboard(userId) {
   const user = db.findUserById(userId);
   if (!user) throw new Error('User not found');
@@ -107,6 +211,7 @@ async function buildUserDashboard(userId) {
     summary,
     allocation: buildAllocation(user.balance_usd, enriched, totalValue),
     holdings: enriched,
+    portfolio_history: buildPortfolioHistory(userId, totalValue),
     recent_activity: db.getUserLedger(userId, 20),
     stats: getUserActivityStats(userId),
   };
@@ -128,6 +233,7 @@ async function buildPortfolioResponse(userId) {
 module.exports = {
   buildUserDashboard,
   buildPortfolioResponse,
+  buildPortfolioHistory,
   enrichHoldings,
   ALLOCATION_COLORS,
 };

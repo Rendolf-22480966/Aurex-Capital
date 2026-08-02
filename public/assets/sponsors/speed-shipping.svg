@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" role="img" aria-label="Speed Shipping and Security">
+  <rect width="280" height="90" rx="8" fill="#0f172a"/>
+  <path d="M24 55 L44 35 L64 48 L84 30" stroke="#f59e0b" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="84" cy="30" r="5" fill="#f59e0b"/>
+  <text x="98" y="38" fill="#fff" font-family="Arial, sans-serif" font-size="13" font-weight="700">Speed Shipping</text>
+  <text x="98" y="56" fill="#94a3b8" font-family="Arial, sans-serif" font-size="10" font-weight="600">&amp; SECURITY CO.</text>
+</svg>
