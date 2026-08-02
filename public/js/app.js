@@ -194,8 +194,8 @@ function openAuth(mode = 'login', { resetToken = '' } = {}) {
     reset: 'Reset Password',
   };
   const subtitles = {
-    login: 'Start with $10,000 virtual USD',
-    register: 'Start with $10,000 virtual USD',
+    login: 'Access your portfolio and live market workspace',
+    register: 'Create your Aurex Capital account',
     forgot: 'Enter your email and we will send a reset link',
     reset: 'Choose a new password for your account',
   };
@@ -376,7 +376,9 @@ function bindEvents() {
         await syncWatchlistOnLogin();
         updateAuthUI();
         closeAuth();
-        enterAppAfterAuth();
+        showView('dashboard');
+        await loadUserDashboard({ force: true });
+        showWelcomeBanner(appState.user);
       } else if (mode === 'register') {
         const result = await api.register({
           firstName: $('#authFirstName').value.trim(),

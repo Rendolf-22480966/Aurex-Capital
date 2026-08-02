@@ -58,6 +58,24 @@ function renderGuest() {
   $('#dashContent')?.classList.add('hidden');
 }
 
+function renderLoading() {
+  $('#dashGuest')?.classList.add('hidden');
+  $('#dashContent')?.classList.remove('hidden');
+  $('#dashTotalValue').textContent = 'Loading…';
+  $('#dashStats').innerHTML = '<div class="skeleton card-skeleton"></div>'.repeat(4);
+  $('#dashAllocation').innerHTML = '<div class="skeleton card-skeleton"></div>';
+  $('#dashHoldingsBody').innerHTML =
+    '<tr><td colspan="5"><div class="skeleton card-skeleton"></div></td></tr>'.repeat(3);
+  $('#dashPortfolioChart').innerHTML = '<div class="skeleton chart-skeleton"></div>';
+}
+
+function renderDashboardError(message) {
+  $('#dashGuest')?.classList.add('hidden');
+  $('#dashContent')?.classList.remove('hidden');
+  $('#dashStats').innerHTML = `<div class="error-state">${message} <button type="button" class="btn btn-ghost btn-sm" id="dashRetryBtn">Retry</button></div>`;
+  $('#dashRetryBtn')?.addEventListener('click', () => loadUserDashboard({ force: true }));
+}
+
 function renderDashboard(data) {
   $('#dashGuest')?.classList.add('hidden');
   $('#dashContent')?.classList.remove('hidden');
@@ -151,19 +169,40 @@ export function initUserDashboard(cbs = {}) {
   });
 }
 
-export async function loadUserDashboard() {
+export async function loadUserDashboard({ force = false } = {}) {
   if (!callbacks.getUser?.()) {
     renderGuest();
     return null;
   }
 
+  renderLoading();
+
   try {
-    const data = await api.refreshUserDashboard();
+    let data;
+    if (force) {
+      data = await api.refreshUserDashboard();
+    } else {
+      try {
+        data = await api.getUserDashboard();
+      } catch {
+        data = await api.refreshUserDashboard();
+      }
+    }
     renderDashboard(data);
     callbacks.onUserUpdate?.(data);
+
+    if (!force) {
+      api.refreshUserDashboard()
+        .then((fresh) => {
+          if (callbacks.getUser?.()) renderDashboard(fresh);
+        })
+        .catch(() => {});
+    }
+
     return data;
   } catch (err) {
     console.error(err);
+    renderDashboardError(err.message || 'Could not load portfolio');
     return null;
   }
 }

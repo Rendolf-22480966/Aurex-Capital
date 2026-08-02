@@ -44,7 +44,12 @@ async function rawRequest(path, options = {}, attempt = 0) {
     const retry = data.retryAfter ? ` Try again in ${data.retryAfter}s.` : '';
     throw new Error((data.error || 'Too many requests') + retry);
   }
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401 && attempt === 0 && path !== '/auth/login') {
+      setToken(null);
+    }
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
   return data;
 }
 
@@ -77,7 +82,7 @@ export const api = {
   getUserDashboard: () => cachedGet('/dashboard/user', CACHE_TTL.userDashboard),
   refreshUserDashboard: () => {
     invalidateMarketCache('GET /dashboard/user');
-    return rawRequest('/dashboard/user');
+    return rawRequest('/dashboard/user', {}, 0);
   },
   getGlobal: () => cachedGet('/market/global', CACHE_TTL.global),
   getGlobalChart: (days = 7) =>

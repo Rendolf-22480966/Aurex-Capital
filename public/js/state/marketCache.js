@@ -16,7 +16,7 @@ export const CACHE_TTL = {
   search: 25_000,
   news: 120_000,
   ads: 300_000,
-  userDashboard: 45_000,
+  userDashboard: 20_000,
 };
 
 export function cacheGet(key) {

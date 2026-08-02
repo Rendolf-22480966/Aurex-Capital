@@ -101,13 +101,7 @@ function issueAuthResponse(res, user, req) {
   });
   setSessionCookie(res, session.token);
 
-  const jwtToken = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: `${db.SESSION_DAYS}d` }
-  );
-
-  return { token: jwtToken, user: publicUser(user) };
+  return { token: session.token, user: publicUser(user) };
 }
 
 module.exports = {

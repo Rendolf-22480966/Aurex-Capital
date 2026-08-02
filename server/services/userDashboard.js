@@ -13,15 +13,27 @@ async function enrichHoldings(holdings) {
     return { enriched, holdingsValue, change24hUsd: 0, change24hPct: 0 };
   }
 
-  const ids = holdings.map((h) => h.coin_id).join(',');
-  const [prices, marketsRes] = await Promise.all([
-    coingecko.getSimplePrices(ids),
-    coingecko.getMarkets({ ids: holdings.map((h) => h.coin_id), perPage: holdings.length, page: 1 }),
-  ]);
-  const imageMap = Object.fromEntries((marketsRes.coins || []).map((c) => [c.id, c.image]));
+  let prices = {};
+  let imageMap = {};
+  try {
+    const ids = holdings.map((h) => h.coin_id).join(',');
+    const pricePromise = Promise.all([
+      coingecko.getSimplePrices(ids),
+      coingecko.getMarkets({ ids: holdings.map((h) => h.coin_id), perPage: holdings.length, page: 1 }),
+    ]);
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('price timeout')), 8000)
+    );
+    const [priceData, marketsRes] = await Promise.race([pricePromise, timeout]);
+    prices = priceData || {};
+    imageMap = Object.fromEntries((marketsRes.coins || []).map((c) => [c.id, c.image]));
+  } catch {
+    /* fall back to cost basis when live prices are slow/unavailable */
+  }
 
   for (const h of holdings) {
-    const price = prices[h.coin_id]?.usd || 0;
+    const livePrice = prices[h.coin_id]?.usd;
+    const price = livePrice || h.avg_buy_price || 0;
     const change24h = prices[h.coin_id]?.usd_24h_change || 0;
     const value = h.amount * price;
     const cost = h.amount * h.avg_buy_price;
