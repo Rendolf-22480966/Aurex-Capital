@@ -20,6 +20,9 @@ const TTL = {
 const MAX_CACHE_ENTRIES = 250;
 
 const MIN_INTERVAL = API_KEY ? 500 : 2500;
+const FETCH_TIMEOUT_MS = Number(process.env.COINGECKO_TIMEOUT_MS) || 12_000;
+const MAX_429_ATTEMPTS = Number(process.env.COINGECKO_MAX_RETRIES) || 2;
+const MAX_BACKOFF_MS = Number(process.env.COINGECKO_MAX_BACKOFF_MS) || 12_000;
 let lastRequestTime = 0;
 let requestQueue = Promise.resolve();
 
@@ -76,7 +79,7 @@ async function coingeckoFetch(path, params = {}, ttl = 60_000) {
   const promise = enqueue(async () => {
     const stale = cached?.data ?? null;
 
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < MAX_429_ATTEMPTS; attempt++) {
       const wait = MIN_INTERVAL - (Date.now() - lastRequestTime);
       if (wait > 0) await sleep(wait);
 
@@ -86,17 +89,37 @@ async function coingeckoFetch(path, params = {}, ttl = 60_000) {
       });
 
       lastRequestTime = Date.now();
-      const response = await fetch(url, { headers: buildHeaders() });
+      let response;
+      try {
+        response = await fetch(url, {
+          headers: buildHeaders(),
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+      } catch (err) {
+        if (stale) {
+          return {
+            data: stale,
+            meta: { cachedAt: cached ? new Date(cached.time).toISOString() : null, stale: true, fromCache: true },
+          };
+        }
+        throw new Error(`CoinGecko request timed out — ${err.message}`);
+      }
 
       if (response.status === 429) {
         const retrySec = parseInt(response.headers.get('retry-after') || '0', 10);
-        const backoff = retrySec > 0 ? retrySec * 1000 : (attempt + 1) * 8000;
+        const backoff = Math.min(
+          retrySec > 0 ? retrySec * 1000 : (attempt + 1) * 4000,
+          MAX_BACKOFF_MS
+        );
         console.warn(`CoinGecko 429 — wait ${Math.round(backoff / 1000)}s`);
         if (stale) {
           return {
             data: stale,
             meta: { cachedAt: cached ? new Date(cached.time).toISOString() : null, stale: true, fromCache: true },
           };
+        }
+        if (attempt >= MAX_429_ATTEMPTS - 1) {
+          throw new Error('CoinGecko rate limit exceeded — try again shortly');
         }
         await sleep(backoff);
         continue;
@@ -310,26 +333,45 @@ async function getDashboardBundle() {
     };
   }
 
-  const [globalRes, trendingRes, gainersRes, losersRes] = await Promise.all([
+  const [globalRes, trendingRes, marketsRes] = await Promise.all([
     getGlobal(),
     getTrending(),
-    getGainers(10),
-    getLosers(10),
+    getMarkets({ page: 1, perPage: 250, order: 'market_cap_desc' }),
   ]);
+
+  const coins = marketsRes.coins || [];
+  const gainers = coins
+    .filter((c) => Number(c.price_change_percentage_24h) > 0)
+    .sort((a, b) => (b.price_change_percentage_24h ?? 0) - (a.price_change_percentage_24h ?? 0))
+    .slice(0, 10);
+  const losers = coins
+    .filter((c) => Number(c.price_change_percentage_24h) < 0)
+    .sort((a, b) => (a.price_change_percentage_24h ?? 0) - (b.price_change_percentage_24h ?? 0))
+    .slice(0, 10);
+
   const bundle = {
     global: globalRes.global,
     trending: trendingRes.trending,
-    gainers: gainersRes.coins,
-    losers: losersRes.coins,
+    gainers,
+    losers,
     meta: {
       global: globalRes.meta,
       trending: trendingRes.meta,
-      gainers: gainersRes.meta,
-      losers: losersRes.meta,
+      gainers: { ...marketsRes.meta, filtered: true, source: 'coingecko_live' },
+      losers: { ...marketsRes.meta, filtered: true, source: 'coingecko_live' },
     },
   };
   setCache(bundleKey, bundle);
   return bundle;
+}
+
+async function warmMarketCache() {
+  try {
+    await getDashboardBundle();
+    console.log('Market cache warmed');
+  } catch (err) {
+    console.warn('Market cache warm skipped:', err.message);
+  }
 }
 
 module.exports = {
@@ -344,4 +386,5 @@ module.exports = {
   getSimplePrices,
   searchCoins,
   getDashboardBundle,
+  warmMarketCache,
 };

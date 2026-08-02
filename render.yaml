@@ -17,5 +17,13 @@ services:
         sync: false
       - key: DATA_DIR
         value: /tmp/aurex-data
+      - key: NEWS_PROVIDER
+        value: rss
+      - key: AD_NETWORK
+        value: sponsors
+      - key: COINGECKO_TIMEOUT_MS
+        value: "12000"
+      - key: COINGECKO_MAX_RETRIES
+        value: "2"
       - key: RATE_LIMIT_MARKET_MAX
         value: "90"

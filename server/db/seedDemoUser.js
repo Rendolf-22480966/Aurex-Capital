@@ -94,17 +94,30 @@ function buildTransactionHistory(userId, portfolioId) {
 }
 
 async function seedRendolfDemoUser() {
+  const existing = prepare('SELECT id FROM users WHERE email = ?').get(DEMO_EMAIL);
+  if (existing?.id) {
+    const seeded = prepare('SELECT COUNT(*) AS c FROM transactions WHERE user_id = ?').get(existing.id);
+    if (seeded?.c >= 30) {
+      console.log(`Demo user ready: ${DEMO_EMAIL} (existing portfolio)`);
+      return existing.id;
+    }
+  }
+
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 12);
 
   let holdingsValue = holdingsValueAtRef();
   try {
-    const prices = await coingecko.getSimplePrices(HOLDINGS.map((h) => h.coin_id));
+    const pricePromise = coingecko.getSimplePrices(HOLDINGS.map((h) => h.coin_id));
+    const prices = await Promise.race([
+      pricePromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+    ]);
     holdingsValue = HOLDINGS.reduce(
       (sum, h) => sum + h.quantity * (prices[h.coin_id]?.usd || REF_PRICES[h.coin_id]),
       0
     );
   } catch {
-    /* use reference prices offline */
+    /* use reference prices when CoinGecko is slow or rate-limited */
   }
 
   const cashBalance = Math.max(100, Math.round((TARGET_TOTAL - holdingsValue) * 100) / 100);

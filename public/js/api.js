@@ -7,14 +7,39 @@ async function cachedGet(path, ttl) {
   return cachedFetch(cacheKeyFor(path), () => rawRequest(path), ttl);
 }
 
-async function rawRequest(path, options = {}) {
+async function rawRequest(path, options = {}, attempt = 0) {
   const API = '/api';
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API}${path}`, { credentials: 'include', ...options, headers });
+  const timeoutMs = options.timeoutMs ?? 25_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res;
+  try {
+    res = await fetch(`${API}${path}`, {
+      credentials: 'include',
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out — the server may be waking up. Please refresh.');
+    }
+    throw err;
+  }
+  clearTimeout(timer);
+
   const data = await res.json().catch(() => ({}));
+  if (res.status === 503 && attempt < 4) {
+    const wait = (data.retryAfter || 2) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return rawRequest(path, options, attempt + 1);
+  }
   if (res.status === 429) {
     const retry = data.retryAfter ? ` Try again in ${data.retryAfter}s.` : '';
     throw new Error((data.error || 'Too many requests') + retry);
